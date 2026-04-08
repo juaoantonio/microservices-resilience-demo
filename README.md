@@ -1,27 +1,42 @@
 # Microservices Resilience Demo
 
-A demo project showing resilience patterns in a distributed system using Spring Boot 3, Resilience4j, and Testcontainers.
+Projeto demo que demonstra padrões de resiliência em sistemas distribuídos usando Spring Boot 3, Resilience4j e Testcontainers.
 
-## Architecture
+## Arquitetura
 
 ```
-Client → order-service (port 8080) → payment-service (port 8081)
+Cliente → order-service (porta 8080) → payment-service (porta 8081)
                    ↓
-             PostgreSQL (port 5432)
+             PostgreSQL (porta 5432)
 ```
 
-**order-service** — main service that creates orders, calls payment-service, and applies resilience patterns (Circuit Breaker, Retry, TimeLimiter).
+**order-service** — serviço principal que cria pedidos, chama o payment-service e aplica os padrões de resiliência (Circuit Breaker, Retry, TimeLimiter).
 
-**payment-service** — simulator with configurable behavior modes: NORMAL, DELAY, ERROR, FLAKY.
+**payment-service** — simulador com modos de comportamento configuráveis: NORMAL, DELAY, ERROR, FLAKY.
 
-## Prerequisites
+## Pré-requisitos
 
 - Java 21
-- Docker (for Testcontainers and local infrastructure)
+- Docker e Docker Compose
 
-## Running locally
+## Executando com Docker Compose
 
-### 1. Start PostgreSQL
+```bash
+docker compose up --build
+```
+
+Os serviços sobem na seguinte ordem: PostgreSQL → payment-service → order-service.
+
+Para derrubar tudo:
+
+```bash
+docker compose down
+```
+
+## Executando localmente (sem Docker Compose)
+
+### 1. Subir o PostgreSQL
+
 ```bash
 docker run -d --name postgres \
   -e POSTGRES_DB=orders \
@@ -30,114 +45,116 @@ docker run -d --name postgres \
   -p 5432:5432 postgres:16-alpine
 ```
 
-### 2. Start payment-service
+### 2. Subir o payment-service
+
 ```bash
 ./gradlew :payment-service:bootRun
 ```
 
-### 3. Start order-service
+### 3. Subir o order-service
+
 ```bash
 ./gradlew :order-service:bootRun
 ```
 
-## API Reference
+## Referência da API
 
-### order-service (port 8080)
+### order-service (porta 8080)
 
-**Create order**
+**Criar pedido**
 ```bash
 curl -X POST http://localhost:8080/orders \
   -H "Content-Type: application/json" \
   -d '{"productId":"prod-1","customerId":"cust-1","amount":99.99}'
 ```
 
-**Get order**
+**Consultar pedido**
 ```bash
 curl http://localhost:8080/orders/1
 ```
 
-**Circuit breaker status**
+**Status do circuit breaker**
 ```bash
 curl http://localhost:8080/actuator/circuitbreakers
 ```
 
-### payment-service (port 8081)
+### payment-service (porta 8081)
 
-**Change simulation mode**
+**Alterar modo de simulação**
 ```bash
-# NORMAL — successful response (default)
+# NORMAL — resposta bem-sucedida (padrão)
 curl -X POST http://localhost:8081/admin/mode \
   -H "Content-Type: application/json" -d '{"mode":"NORMAL"}'
 
-# DELAY — 5s delay, triggers order-service timeout
+# DELAY — atraso de 5s, provoca timeout no order-service
 curl -X POST http://localhost:8081/admin/mode \
   -H "Content-Type: application/json" -d '{"mode":"DELAY"}'
 
-# ERROR — always returns HTTP 500
+# ERROR — sempre retorna HTTP 500
 curl -X POST http://localhost:8081/admin/mode \
   -H "Content-Type: application/json" -d '{"mode":"ERROR"}'
 
-# FLAKY — alternates between error and success
+# FLAKY — alterna entre erro e sucesso a cada chamada
 curl -X POST http://localhost:8081/admin/mode \
   -H "Content-Type: application/json" -d '{"mode":"FLAKY"}'
 ```
 
-## Demo Scenarios
+## Cenários da demo
 
-### Scenario 1 — Normal flow
-1. Ensure payment mode is NORMAL
+### Cenário 1 — Fluxo normal
+1. Confirmar que o modo está em NORMAL
 2. `POST /orders`
-3. Expected: `status=CONFIRMED`, `paymentStatus=APPROVED`
+3. Resultado esperado: `status=CONFIRMED`, `paymentStatus=APPROVED`
 
-### Scenario 2 — Latency / Timeout
-1. Set payment mode to DELAY
+### Cenário 2 — Latência / Timeout
+1. Alterar modo para DELAY
 2. `POST /orders`
-3. Expected: TimeLimiter triggers at 2s → fallback → `status=PENDING`, `paymentStatus=UNAVAILABLE`
+3. Resultado esperado: TimeLimiter dispara em 2s → fallback ativado → `status=PENDING`, `paymentStatus=UNAVAILABLE`
 
-### Scenario 3 — Intermittent errors (Retry)
-1. Set payment mode to FLAKY
-2. `POST /orders` repeatedly
-3. Expected: Retry recovers on even-numbered attempts; occasional confirmed orders
+### Cenário 3 — Erros intermitentes (Retry)
+1. Alterar modo para FLAKY
+2. Realizar múltiplos `POST /orders`
+3. Resultado esperado: Retry tenta recuperar nas chamadas pares; pedidos confirmados eventualmente
 
-### Scenario 4 — Full unavailability (Circuit Breaker)
-1. Set payment mode to ERROR
-2. `POST /orders` 3+ times in a row
-3. Expected: Circuit breaker opens after failure threshold
-4. Check state: `GET /actuator/circuitbreakers` → `state=OPEN`
-5. Subsequent calls fail fast with fallback (`status=PENDING`) without reaching payment-service
+### Cenário 4 — Indisponibilidade total (Circuit Breaker)
+1. Alterar modo para ERROR
+2. Realizar 3 ou mais `POST /orders` seguidos
+3. Resultado esperado: circuit breaker abre após atingir o limiar de falhas
+4. Verificar estado: `GET /actuator/circuitbreakers` → `state=OPEN`
+5. Chamadas subsequentes retornam fallback (`status=PENDING`) sem atingir o payment-service
 
-## Running Tests
+## Rodando os testes
 
 ```bash
-# All tests (requires Docker)
+# Todos os testes (requer Docker para Testcontainers)
 ./gradlew test
 
-# order-service only
+# Apenas order-service
 ./gradlew :order-service:test
 
-# payment-service only (no Docker needed)
+# Apenas payment-service (não precisa de Docker)
 ./gradlew :payment-service:test
 ```
 
-Test coverage:
-- **Unit tests** — `PaymentSimulationServiceTest`, `PaymentFallbackHandlerTest`
-- **Integration tests** — `PaymentControllerIntegrationTest`, `OrderPersistenceIntegrationTest` (Testcontainers PostgreSQL)
-- **End-to-end tests** — `OrderEndToEndTest` (WireMock + Testcontainers, all 4 scenarios)
+Cobertura de testes:
+- **Unitários** — `PaymentSimulationServiceTest`, `PaymentFallbackHandlerTest`
+- **Integração** — `PaymentControllerIntegrationTest`, `OrderPersistenceIntegrationTest` (PostgreSQL via Testcontainers)
+- **End-to-end** — `OrderEndToEndTest` (WireMock + Testcontainers, 4 cenários)
 
-## Resilience4j Configuration (order-service)
+## Configuração do Resilience4j (order-service)
 
-| Pattern | Setting |
+| Padrão | Configuração |
 |---|---|
-| Circuit Breaker | Opens at ≥50% failures over 5 calls (min 3 calls required) |
-| Retry | Max 3 attempts, 500ms between retries |
-| TimeLimiter | 2s timeout per payment call |
-| Fallback | Order saved as PENDING with UNAVAILABLE payment status |
+| Circuit Breaker | Abre com ≥ 50% de falhas em 5 chamadas (mínimo de 3 chamadas) |
+| Retry | Máximo de 3 tentativas com 500ms de espera entre elas |
+| TimeLimiter | Timeout de 2s por chamada ao payment-service |
+| Fallback | Pedido salvo como PENDING com status de pagamento UNAVAILABLE |
 
-## Observability
+## Observabilidade
 
-| Endpoint | Description |
+| Endpoint | Descrição |
 |---|---|
-| `GET /actuator/health` | Service health + circuit breaker state |
-| `GET /actuator/metrics` | All Micrometer metrics |
-| `GET /actuator/circuitbreakers` | Circuit breaker states and statistics |
-| `GET /actuator/circuitbreakerevents` | Recent circuit breaker events |
+| `GET /actuator/health` | Saúde do serviço + estado do circuit breaker |
+| `GET /actuator/metrics` | Todas as métricas Micrometer |
+| `GET /actuator/circuitbreakers` | Estados e estatísticas do circuit breaker |
+| `GET /actuator/circuitbreakerevents` | Eventos recentes do circuit breaker |
