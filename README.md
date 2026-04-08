@@ -143,18 +143,18 @@ Cobertura de testes:
 
 ## Configuração do Resilience4j (order-service)
 
-| Padrão | Configuração |
-|---|---|
+| Padrão          | Configuração                                                  |
+|-----------------|---------------------------------------------------------------|
 | Circuit Breaker | Abre com ≥ 50% de falhas em 5 chamadas (mínimo de 3 chamadas) |
-| Retry | Máximo de 3 tentativas com 500ms de espera entre elas |
-| TimeLimiter | Timeout de 2s por chamada ao payment-service |
-| Fallback | Pedido salvo como PENDING com status de pagamento UNAVAILABLE |
+| Retry           | Máximo de 3 tentativas com 500ms de espera entre elas         |
+| TimeLimiter     | Timeout de 2s por chamada ao payment-service                  |
+| Fallback        | Pedido salvo como PENDING com status de pagamento UNAVAILABLE |
 
 ## Observabilidade
 
-| Endpoint | Descrição |
-|---|---|
-| `GET /actuator/health` | Saúde do serviço + estado do circuit breaker |
-| `GET /actuator/metrics` | Todas as métricas Micrometer |
-| `GET /actuator/circuitbreakers` | Estados e estatísticas do circuit breaker |
-| `GET /actuator/circuitbreakerevents` | Eventos recentes do circuit breaker |
+| Endpoint                             | Descrição                                    |
+|--------------------------------------|----------------------------------------------|
+| `GET /actuator/health`               | Saúde do serviço + estado do circuit breaker |
+| `GET /actuator/metrics`              | Todas as métricas Micrometer                 |
+| `GET /actuator/circuitbreakers`      | Estados e estatísticas do circuit breaker    |
+| `GET /actuator/circuitbreakerevents` | Eventos recentes do circuit breaker          |
