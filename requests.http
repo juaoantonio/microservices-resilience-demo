@@ -1,0 +1,231 @@
+### =============================================================
+### Microservices Resilience Demo — Requisições HTTP
+### Compatível com IntelliJ HTTP Client e VS Code REST Client
+### =============================================================
+
+@order_url = http://localhost:8080
+@payment_url = http://localhost:8081
+
+
+### =============================================================
+### ORDER-SERVICE
+### =============================================================
+
+### Criar pedido
+POST {{order_url}}/orders
+Content-Type: application/json
+
+{
+  "productId": "prod-1",
+  "customerId": "cust-1",
+  "amount": 99.99
+}
+
+
+### Criar pedido — outro produto
+POST {{order_url}}/orders
+Content-Type: application/json
+
+{
+  "productId": "prod-2",
+  "customerId": "cust-2",
+  "amount": 250.00
+}
+
+
+### Consultar pedido por ID (substituir {id} pelo id retornado)
+GET {{order_url}}/orders/1
+
+
+### =============================================================
+### PAYMENT-SERVICE — Consulta e alteração de modo
+### =============================================================
+
+### Consultar modo atual
+GET {{payment_url}}/admin/mode
+
+
+### Definir modo NORMAL (respostas bem-sucedidas)
+POST {{payment_url}}/admin/mode
+Content-Type: application/json
+
+{
+  "mode": "NORMAL"
+}
+
+
+### Definir modo DELAY (atraso de 5s — provoca timeout no order-service)
+POST {{payment_url}}/admin/mode
+Content-Type: application/json
+
+{
+  "mode": "DELAY"
+}
+
+
+### Definir modo ERROR (sempre retorna HTTP 500)
+POST {{payment_url}}/admin/mode
+Content-Type: application/json
+
+{
+  "mode": "ERROR"
+}
+
+
+### Definir modo FLAKY (alterna erro/sucesso a cada chamada)
+POST {{payment_url}}/admin/mode
+Content-Type: application/json
+
+{
+  "mode": "FLAKY"
+}
+
+
+### =============================================================
+### CENÁRIO 1 — Fluxo normal
+### Esperado: status=CONFIRMED, paymentStatus=APPROVED
+### =============================================================
+
+### Passo 1: garantir modo NORMAL
+POST {{payment_url}}/admin/mode
+Content-Type: application/json
+
+{
+  "mode": "NORMAL"
+}
+
+
+### Passo 2: criar pedido
+POST {{order_url}}/orders
+Content-Type: application/json
+
+{
+  "productId": "prod-cenario1",
+  "customerId": "cust-cenario1",
+  "amount": 150.00
+}
+
+
+### =============================================================
+### CENÁRIO 2 — Latência / Timeout
+### Esperado: status=PENDING, paymentStatus=UNAVAILABLE
+### =============================================================
+
+### Passo 1: ativar modo DELAY
+POST {{payment_url}}/admin/mode
+Content-Type: application/json
+
+{
+  "mode": "DELAY"
+}
+
+
+### Passo 2: criar pedido (aguardar ~2s para o timeout disparar)
+POST {{order_url}}/orders
+Content-Type: application/json
+
+{
+  "productId": "prod-cenario2",
+  "customerId": "cust-cenario2",
+  "amount": 200.00
+}
+
+
+### =============================================================
+### CENÁRIO 3 — Erros intermitentes (Retry)
+### Esperado: retry tenta recuperar; confirmar ou degradar
+### =============================================================
+
+### Passo 1: ativar modo FLAKY
+POST {{payment_url}}/admin/mode
+Content-Type: application/json
+
+{
+  "mode": "FLAKY"
+}
+
+
+### Passo 2: criar pedido (repetir várias vezes para observar alternância)
+POST {{order_url}}/orders
+Content-Type: application/json
+
+{
+  "productId": "prod-cenario3",
+  "customerId": "cust-cenario3",
+  "amount": 75.00
+}
+
+
+### =============================================================
+### CENÁRIO 4 — Indisponibilidade total (Circuit Breaker)
+### Esperado: após 3+ falhas, circuito abre e fallback responde
+###           sem atingir o payment-service
+### =============================================================
+
+### Passo 1: ativar modo ERROR
+POST {{payment_url}}/admin/mode
+Content-Type: application/json
+
+{
+  "mode": "ERROR"
+}
+
+
+### Passo 2: disparar falhas para abrir o circuito (executar 3-5x)
+POST {{order_url}}/orders
+Content-Type: application/json
+
+{
+  "productId": "prod-cenario4",
+  "customerId": "cust-cenario4",
+  "amount": 50.00
+}
+
+
+### Passo 3: verificar estado OPEN do circuit breaker
+GET {{order_url}}/actuator/circuitbreakers
+
+
+### Passo 4: após ~10s o circuito vai para HALF-OPEN; restaurar modo NORMAL
+POST {{payment_url}}/admin/mode
+Content-Type: application/json
+
+{
+  "mode": "NORMAL"
+}
+
+
+### =============================================================
+### ACTUATOR — Observabilidade
+### =============================================================
+
+### Health geral
+GET {{order_url}}/actuator/health
+
+
+### Métricas disponíveis
+GET {{order_url}}/actuator/metrics
+
+
+### Estado dos circuit breakers
+GET {{order_url}}/actuator/circuitbreakers
+
+
+### Eventos recentes do circuit breaker
+GET {{order_url}}/actuator/circuitbreakerevents
+
+
+### Métrica específica: número de chamadas com sucesso
+GET {{order_url}}/actuator/metrics/resilience4j.circuitbreaker.calls?tag=kind:successful
+
+
+### Métrica específica: número de chamadas com falha
+GET {{order_url}}/actuator/metrics/resilience4j.circuitbreaker.calls?tag=kind:failed
+
+
+### Métrica específica: chamadas não permitidas (circuito aberto)
+GET {{order_url}}/actuator/metrics/resilience4j.circuitbreaker.calls?tag=kind:not_permitted
+
+
+### Health do payment-service
+GET {{payment_url}}/actuator/health
