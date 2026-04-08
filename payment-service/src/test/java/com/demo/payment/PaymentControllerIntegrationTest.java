@@ -1,6 +1,7 @@
 package com.demo.payment;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -35,6 +36,7 @@ class PaymentControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("Modo NORMAL deve retornar HTTP 200 com status APPROVED")
     void normalMode_returns200WithApproved() throws Exception {
         modeHolder.setMode(PaymentMode.NORMAL);
         mockMvc.perform(post("/payments")
@@ -46,6 +48,7 @@ class PaymentControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("Modo ERROR deve retornar HTTP 500")
     void errorMode_returns500() throws Exception {
         modeHolder.setMode(PaymentMode.ERROR);
         mockMvc.perform(post("/payments")
@@ -55,6 +58,7 @@ class PaymentControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("Endpoint /admin/mode deve alterar o modo de simulação")
     void setMode_changesMode() throws Exception {
         ModeRequest modeReq = new ModeRequest();
         modeReq.setMode("DELAY");
@@ -69,6 +73,7 @@ class PaymentControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("Modo FLAKY deve alternar entre erro e sucesso a cada chamada")
     void flakyMode_alternatesBehavior() throws Exception {
         modeHolder.setMode(PaymentMode.FLAKY);
         // First call (odd) should fail

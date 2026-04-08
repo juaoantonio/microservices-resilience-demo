@@ -5,6 +5,7 @@ import com.demo.order.domain.OrderRepository;
 import com.demo.order.domain.OrderStatus;
 import com.demo.order.dto.OrderResponse;
 import com.demo.order.service.PaymentFallbackHandler;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -27,6 +28,7 @@ class PaymentFallbackHandlerTest {
     PaymentFallbackHandler fallbackHandler;
 
     @Test
+    @DisplayName("Fallback deve definir status PENDING e pagamento UNAVAILABLE")
     void fallback_setsPendingStatusAndUnavailablePayment() {
         Order order = Order.builder()
                 .id(1L)
@@ -46,6 +48,7 @@ class PaymentFallbackHandlerTest {
     }
 
     @Test
+    @DisplayName("Fallback deve retornar o id do pedido e mensagem de degradação")
     void fallback_returnsOrderIdAndDegradationMessage() {
         Order order = Order.builder()
                 .id(2L)

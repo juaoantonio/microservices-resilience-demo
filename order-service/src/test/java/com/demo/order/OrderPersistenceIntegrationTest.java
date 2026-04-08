@@ -4,6 +4,7 @@ import com.demo.order.domain.Order;
 import com.demo.order.domain.OrderRepository;
 import com.demo.order.domain.OrderStatus;
 import com.demo.order.domain.PaymentStatus;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -38,6 +39,7 @@ class OrderPersistenceIntegrationTest {
     OrderRepository orderRepository;
 
     @Test
+    @DisplayName("Deve persistir pedido com todos os campos preenchidos corretamente")
     void persistsOrderWithAllFields() {
         Order order = Order.builder()
                 .productId("prod-1")
@@ -59,6 +61,7 @@ class OrderPersistenceIntegrationTest {
     }
 
     @Test
+    @DisplayName("Deve persistir pedido com status PENDING e pagamento UNAVAILABLE")
     void persistsPendingOrder() {
         Order order = Order.builder()
                 .productId("prod-2")

@@ -1,6 +1,7 @@
 package com.demo.payment;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -27,6 +28,7 @@ class PaymentSimulationServiceTest {
     }
 
     @Test
+    @DisplayName("Modo NORMAL deve retornar pagamento aprovado")
     void normalMode_returnsApproved() {
         modeHolder.setMode(PaymentMode.NORMAL);
         PaymentSimulationResponse resp = service.process(request());
@@ -35,6 +37,7 @@ class PaymentSimulationServiceTest {
     }
 
     @Test
+    @DisplayName("Modo NORMAL deve gerar IDs de pagamento únicos a cada chamada")
     void normalMode_generatesUniquePaymentIds() {
         modeHolder.setMode(PaymentMode.NORMAL);
         PaymentSimulationResponse r1 = service.process(request());
@@ -43,6 +46,7 @@ class PaymentSimulationServiceTest {
     }
 
     @Test
+    @DisplayName("Modo ERROR deve lançar exceção de processamento")
     void errorMode_throwsException() {
         modeHolder.setMode(PaymentMode.ERROR);
         assertThatThrownBy(() -> service.process(request()))
@@ -51,6 +55,7 @@ class PaymentSimulationServiceTest {
     }
 
     @Test
+    @DisplayName("Modo FLAKY deve falhar na primeira chamada (chamada ímpar)")
     void flakyMode_firstCallFails() {
         modeHolder.setMode(PaymentMode.FLAKY);
         assertThatThrownBy(() -> service.process(request()))
@@ -58,6 +63,7 @@ class PaymentSimulationServiceTest {
     }
 
     @Test
+    @DisplayName("Modo FLAKY deve ter sucesso na segunda chamada (chamada par)")
     void flakyMode_secondCallSucceeds() {
         modeHolder.setMode(PaymentMode.FLAKY);
         // call 1 (odd) → fails
@@ -69,6 +75,7 @@ class PaymentSimulationServiceTest {
     }
 
     @Test
+    @DisplayName("Troca de modo deve reiniciar o contador de chamadas")
     void modeReset_resetsCallCount() {
         modeHolder.setMode(PaymentMode.FLAKY);
         // call 1 fails
