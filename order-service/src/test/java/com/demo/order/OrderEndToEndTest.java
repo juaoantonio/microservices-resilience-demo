@@ -81,7 +81,7 @@ class OrderEndToEndTest {
     }
 
     @Test
-    @DisplayName("Scenario 1: Normal flow — payment approved, order CONFIRMED")
+    @DisplayName("Cenário 1: Fluxo normal — pagamento aprovado, pedido CONFIRMADO")
     void scenario1_normalFlow() {
         wireMock.stubFor(post(urlEqualTo("/payments"))
                 .willReturn(aResponse()
@@ -98,7 +98,7 @@ class OrderEndToEndTest {
     }
 
     @Test
-    @DisplayName("Scenario 2: Slow payment — TimeLimiter triggers, fallback returns PENDING")
+    @DisplayName("Cenário 2: Pagamento lento — TimeLimiter dispara, fallback retorna PENDING")
     void scenario2_timeout_fallback() {
         wireMock.stubFor(post(urlEqualTo("/payments"))
                 .willReturn(aResponse()
@@ -115,7 +115,7 @@ class OrderEndToEndTest {
     }
 
     @Test
-    @DisplayName("Scenario 3: Flaky payment — Retry recovers on second attempt")
+    @DisplayName("Cenário 3: Pagamento instável — Retry recupera na segunda tentativa")
     void scenario3_flaky_retry_recovers() {
         wireMock.stubFor(post(urlEqualTo("/payments"))
                 .inScenario("flaky")
@@ -138,7 +138,7 @@ class OrderEndToEndTest {
     }
 
     @Test
-    @DisplayName("Scenario 4: Payment unavailable — CircuitBreaker opens, fallback responds fast")
+    @DisplayName("Cenário 4: Pagamento indisponível — CircuitBreaker abre, fallback responde rapidamente")
     void scenario4_unavailability_circuitBreaker() {
         wireMock.stubFor(post(urlEqualTo("/payments"))
                 .willReturn(aResponse().withStatus(500).withBody("{\"error\":\"down\"}")));
