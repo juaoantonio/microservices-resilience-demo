@@ -1,0 +1,3 @@
+rootProject.name = 'microservices-resilience'
+include 'order-service'
+include 'payment-service'
