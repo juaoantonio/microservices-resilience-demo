@@ -1,0 +1,1676 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Testando Falhas em Microserviços Java</title>
+
+    <!-- Fonts: Poppins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300&display=swap"
+          rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* =====================================================
+           THEME: WARM EARTH — Custom palette
+           sunlit-clay:  #e9af6b  (accent / highlight)
+           pearl-beige:  #e7ddbc  (secondary text)
+           ivory-mist:   #fef8e4  (primary text)
+           olive-bark:   #654d24  (structural / panels)
+           olive-wood:   #7c6842  (borders / muted)
+           ===================================================== */
+        :root {
+            --sunlit-clay: #e9af6b;
+            --pearl-beige: #e7ddbc;
+            --ivory-mist: #fef8e4;
+            --olive-bark: #654d24;
+            --olive-wood: #7c6842;
+
+            /* Derived / extended */
+            --bg-primary: #150e04;
+            --bg-warm: #1e1408;
+            --bg-panel: rgba(101, 77, 36, 0.22);
+            --border-muted: rgba(233, 175, 107, 0.18);
+            --border-warm: rgba(233, 175, 107, 0.38);
+
+            /* Typography */
+            --font-display: 'Poppins', sans-serif;
+            --font-body: 'Poppins', sans-serif;
+            --font-mono: 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+
+            /* Sizes — all clamp()
+               Minimums set for projector readability (WCAG 2.1 / distance viewing).
+               16px (1rem) is the practical floor for body text on a projector. */
+            --title-size: clamp(2rem, 5.5vw, 5rem);
+            --h2-size: clamp(1.65rem, 3.2vw, 2.6rem);
+            --h3-size: clamp(1.25rem, 2.2vw, 1.6rem);
+            --body-size: clamp(1.05rem, 1.5vw, 1.15rem);
+            --small-size: clamp(0.85rem, 1.05vw, 0.95rem);
+            --code-size: clamp(0.92rem, 1.3vw, 1.05rem);
+
+            /* Spacing */
+            --slide-padding: clamp(1.5rem, 5vw, 5rem);
+            --content-gap: clamp(0.7rem, 1.8vw, 1.8rem);
+            --element-gap: clamp(0.35rem, 0.8vw, 0.8rem);
+
+            /* Animation */
+            --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
+            --dur: 0.65s;
+        }
+
+        /* =====================================================
+           RESET
+           ===================================================== */
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* =====================================================
+           VIEWPORT BASE (from viewport-base.css — mandatory)
+           ===================================================== */
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* scroll-snap removed — JS controls slide transitions */
+
+        .slide {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            /* Default state: parked below viewport */
+            transform: translateY(100%);
+            opacity: 0;
+            pointer-events: none;
+            /* Slide transition — smooth vertical push */
+            transition: transform 0.7s cubic-bezier(0.76, 0, 0.24, 1),
+            opacity 0.5s cubic-bezier(0.76, 0, 0.24, 1);
+            will-change: transform, opacity;
+        }
+
+        /* Parked above viewport (already visited) */
+        .slide.is-above {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+
+        /* Currently visible slide */
+        .slide.is-active {
+            transform: translateY(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Explicitly parked below (used during programmatic repositioning) */
+        .slide.is-below {
+            transform: translateY(100%);
+            opacity: 0;
+        }
+
+        .slide-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            max-height: 100%;
+            overflow: hidden;
+            padding: var(--slide-padding);
+        }
+
+        img, .image-container {
+            max-width: 100%;
+            max-height: min(50vh, 400px);
+            object-fit: contain;
+        }
+
+        /* Short viewports: scale down spacing but keep fonts legible */
+        @media (max-height: 700px) {
+            :root {
+                --slide-padding: clamp(0.9rem, 3vw, 2rem);
+                --content-gap: clamp(0.4rem, 1.2vw, 0.9rem);
+                --title-size: clamp(1.6rem, 4.5vw, 2.8rem);
+                --h2-size: clamp(1.3rem, 3vw, 2rem);
+                --body-size: clamp(0.95rem, 1.4vw, 1.05rem);
+                --small-size: clamp(0.78rem, 1vw, 0.9rem);
+            }
+        }
+
+        @media (max-height: 600px) {
+            :root {
+                --slide-padding: clamp(0.6rem, 2.5vw, 1.5rem);
+                --title-size: clamp(1.3rem, 4vw, 2.2rem);
+                --h2-size: clamp(1.1rem, 3vw, 1.7rem);
+                --body-size: clamp(0.88rem, 1.3vw, 1rem);
+                --small-size: clamp(0.72rem, 0.95vw, 0.85rem);
+                --code-size: clamp(0.78rem, 1.2vw, 0.95rem);
+            }
+
+            .nav-dots, .keyboard-hint {
+                display: none;
+            }
+        }
+
+        @media (max-height: 500px) {
+            :root {
+                --slide-padding: clamp(0.5rem, 2vw, 1rem);
+                --title-size: clamp(1.1rem, 3.5vw, 1.8rem);
+                --h2-size: clamp(1rem, 2.5vw, 1.4rem);
+                --body-size: clamp(0.8rem, 1.2vw, 0.95rem);
+                --small-size: clamp(0.68rem, 0.9vw, 0.8rem);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.2s !important;
+            }
+
+            /* transitions already disabled above */
+        }
+
+        /* =====================================================
+           BASE
+           ===================================================== */
+        body {
+            background: var(--bg-primary);
+            color: var(--ivory-mist);
+            font-family: var(--font-body);
+            font-size: var(--body-size);
+        }
+
+        /* Subtle warm dot grid on all slides */
+        .slide::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: radial-gradient(rgba(233, 175, 107, 0.04) 1px, transparent 1px);
+            background-size: 36px 36px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .slide > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* =====================================================
+           PROGRESS BAR
+           ===================================================== */
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--olive-bark), var(--sunlit-clay));
+            width: 0%;
+            z-index: 1000;
+            transition: width 0.35s ease;
+        }
+
+        /* =====================================================
+           NAV DOTS
+           ===================================================== */
+        .nav-dots {
+            position: fixed;
+            right: clamp(0.6rem, 1.5vw, 1.2rem);
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: clamp(4px, 0.55vh, 7px);
+            z-index: 1000;
+            list-style: none;
+        }
+
+        .nav-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: rgba(233, 175, 107, 0.25);
+            cursor: pointer;
+            border: none;
+            transition: all 0.3s ease;
+        }
+
+        .nav-dot.active {
+            background: var(--sunlit-clay);
+            transform: scale(1.5);
+        }
+
+        .nav-dot:hover {
+            background: rgba(233, 175, 107, 0.6);
+        }
+
+        /* =====================================================
+           KEYBOARD HINT
+           ===================================================== */
+        .keyboard-hint {
+            position: fixed;
+            bottom: clamp(0.6rem, 1.5vh, 1.2rem);
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: var(--font-mono);
+            font-size: clamp(0.45rem, 0.7vw, 0.62rem);
+            color: rgba(233, 175, 107, 0.2);
+            letter-spacing: 0.12em;
+            z-index: 100;
+            white-space: nowrap;
+        }
+
+        /* =====================================================
+           SLIDE NUMBER
+           ===================================================== */
+        .slide-num {
+            position: absolute;
+            top: clamp(0.8rem, 1.8vh, 1.4rem);
+            right: clamp(2.5rem, 5vw, 4.5rem);
+            font-family: var(--font-mono);
+            font-size: var(--small-size);
+            /* WCAG fix: was 0.35 opacity → ~2.1:1. #a07840 on #150e04 → ~5.2:1 (AA). */
+            color: #a07840;
+            letter-spacing: 0.12em;
+            z-index: 10;
+        }
+
+        /* =====================================================
+           LEFT ACCENT BAR
+           ===================================================== */
+        .accent-bar {
+            position: absolute;
+            left: 0;
+            top: 12%;
+            bottom: 12%;
+            width: 3px;
+            background: linear-gradient(180deg, transparent, var(--sunlit-clay) 30%, var(--sunlit-clay) 70%, transparent);
+        }
+
+        /* =====================================================
+           ANIMATIONS (scroll-triggered via .visible class)
+           ===================================================== */
+        .reveal {
+            opacity: 0;
+            transform: translateY(22px);
+            transition: opacity var(--dur) var(--ease-expo),
+            transform var(--dur) var(--ease-expo);
+        }
+
+        .slide.visible .reveal {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .slide.visible .reveal:nth-child(1) {
+            transition-delay: 0.04s;
+        }
+
+        .slide.visible .reveal:nth-child(2) {
+            transition-delay: 0.13s;
+        }
+
+        .slide.visible .reveal:nth-child(3) {
+            transition-delay: 0.22s;
+        }
+
+        .slide.visible .reveal:nth-child(4) {
+            transition-delay: 0.31s;
+        }
+
+        .slide.visible .reveal:nth-child(5) {
+            transition-delay: 0.40s;
+        }
+
+        .slide.visible .reveal:nth-child(6) {
+            transition-delay: 0.48s;
+        }
+
+        /* =====================================================
+           TYPOGRAPHY
+           ===================================================== */
+        h1 {
+            font-family: var(--font-display);
+            font-size: var(--title-size);
+            font-weight: 800;
+            line-height: 1.0;
+            color: var(--ivory-mist);
+        }
+
+        h2 {
+            font-family: var(--font-display);
+            font-size: var(--h2-size);
+            font-weight: 700;
+            line-height: 1.15;
+            color: var(--ivory-mist);
+        }
+
+        .accent {
+            color: var(--sunlit-clay);
+        }
+
+        /* WCAG fix: opacity-based dimming fails contrast; use explicit colour instead.
+           #b8ad92 on #150e04 → ~8.2:1 contrast ratio (AAA for normal text). */
+        .text-muted {
+            color: #b8ad92;
+        }
+
+        .text-secondary {
+            color: var(--pearl-beige);
+        }
+
+        /* =====================================================
+           SECTION LABEL (eyebrow)
+           ===================================================== */
+        .section-label {
+            font-family: var(--font-mono);
+            font-size: var(--small-size);
+            color: var(--sunlit-clay);
+            text-transform: uppercase;
+            letter-spacing: 0.22em;
+            margin-bottom: clamp(0.4rem, 1.2vh, 1rem);
+        }
+
+        /* =====================================================
+           HIGHLIGHT BOX (callout)
+           ===================================================== */
+        .highlight-box {
+            background: rgba(233, 175, 107, 0.08);
+            border-left: 3px solid var(--sunlit-clay);
+            padding: clamp(0.6rem, 1.5vw, 1.2rem);
+            border-radius: 0 4px 4px 0;
+        }
+
+        .highlight-box p {
+            font-family: var(--font-display);
+            /* Projector: raised minimum from 0.85rem */
+            font-size: clamp(1rem, 1.8vw, 1.35rem);
+            font-weight: 600;
+            color: var(--ivory-mist);
+            line-height: 1.4;
+        }
+
+        /* =====================================================
+           CARDS
+           ===================================================== */
+        .card {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-muted);
+            border-radius: 4px;
+            padding: clamp(0.65rem, 1.8vw, 1.4rem);
+        }
+
+        .card-icon {
+            font-family: var(--font-mono);
+            /* Projector: raised minimum from 0.55rem. sunlit-clay on bg → 9.6:1 ✓ */
+            font-size: clamp(0.75rem, 0.9vw, 0.82rem);
+            color: var(--sunlit-clay);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            margin-bottom: 0.35em;
+        }
+
+        .card-name {
+            font-family: var(--font-display);
+            /* Projector: raised minimum from 0.85rem. ivory-mist on bg → 17:1 ✓ */
+            font-size: clamp(1rem, 1.8vw, 1.25rem);
+            font-weight: 700;
+            color: var(--ivory-mist);
+            line-height: 1.25;
+            margin-bottom: 0.2em;
+        }
+
+        .card-desc {
+            /* WCAG fix: removed opacity:0.75 (created reliance on compositing).
+               #c4b99a on #150e04 → ~9.4:1 (AAA). Projector: min raised to 0.85rem. */
+            font-size: clamp(0.85rem, 1.15vw, 0.95rem);
+            color: #c4b99a;
+            line-height: 1.5;
+        }
+
+        /* =====================================================
+           GRID LAYOUTS
+           ===================================================== */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: clamp(0.6rem, 1.5vw, 1.2rem);
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: clamp(0.6rem, 1.5vw, 1.2rem);
+        }
+
+        .grid-2x2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: clamp(0.5rem, 1.2vw, 1rem);
+        }
+
+        @media (max-width: 600px) {
+            .grid-2, .grid-3, .grid-2x2 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* =====================================================
+           BULLET LIST
+           ===================================================== */
+        .bullet-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: var(--element-gap);
+        }
+
+        .bullet-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.7em;
+            font-size: var(--body-size);
+            color: var(--pearl-beige);
+            line-height: 1.5;
+        }
+
+        .bullet-list li::before {
+            content: '—';
+            color: var(--sunlit-clay);
+            font-family: var(--font-display);
+            font-weight: 800;
+            flex-shrink: 0;
+        }
+
+        .bullet-list li strong {
+            color: var(--ivory-mist);
+        }
+
+        /* =====================================================
+           FLOW ROW (pills with arrows)
+           ===================================================== */
+        .flow-row {
+            display: flex;
+            align-items: center;
+            gap: clamp(0.3rem, 0.8vw, 0.6rem);
+            flex-wrap: wrap;
+        }
+
+        .flow-pill {
+            background: rgba(233, 175, 107, 0.1);
+            border: 1px solid var(--border-muted);
+            border-radius: 3px;
+            padding: 0.3em 0.75em;
+            /* Projector: raised minimum from 0.68rem. ivory-mist on bg → 17:1 ✓ */
+            font-size: clamp(0.88rem, 1.2vw, 1rem);
+            color: var(--ivory-mist);
+            white-space: nowrap;
+        }
+
+        .flow-arrow {
+            color: var(--sunlit-clay);
+            font-size: clamp(0.9rem, 1.4vw, 1.1rem);
+            /* WCAG fix: opacity removed; sunlit-clay at full opacity → 9.6:1 ✓ */
+        }
+
+        /* =====================================================
+           CODE BLOCK
+           ===================================================== */
+        .code-block {
+            background: #0a0702;
+            border: 1px solid rgba(233, 175, 107, 0.12);
+            border-radius: 4px;
+            padding: clamp(0.65rem, 1.8vw, 1.4rem);
+            overflow: auto;
+        }
+
+        .code-block pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            font-family: var(--font-mono);
+            font-size: var(--code-size);
+            line-height: 1.75;
+        }
+
+        .code-block code {
+            font-family: var(--font-mono);
+            display: block;
+            color: var(--pearl-beige);
+        }
+
+        /* Code token colours — all verified against #0a0702 background:
+           .code-annot  #e9af6b → 9.6:1  ✓ AAA
+           .code-kw     #c89b5c → 8.4:1  ✓ AAA
+           .code-type   #a8c8c0 → 11.4:1 ✓ AAA
+           .code-str    #a8c87e → 11.0:1 ✓ AAA
+           .code-plain  #e7ddbc → 15.2:1 ✓ AAA
+           .code-comment was rgba(…,0.3) → ~2.5:1 ❌; fixed to #8c8270 → 4.7:1 ✓ AA */
+        .code-annot {
+            color: var(--sunlit-clay);
+        }
+
+        .code-kw {
+            color: #d9a35f;
+            font-weight: 600;
+        }
+
+        .code-type {
+            color: #9fd0d0;
+        }
+
+        .code-str {
+            color: #b7d986;
+        }
+
+        .code-plain {
+            color: var(--pearl-beige);
+        }
+
+        .code-comment {
+            color: #8c8270;
+            font-style: italic;
+        }
+
+        /* =====================================================
+           COMPARISON COLUMNS
+           ===================================================== */
+        .compare-col {
+            padding: clamp(0.65rem, 1.8vw, 1.4rem);
+            border-radius: 4px;
+        }
+
+        .compare-col.bad {
+            background: rgba(160, 50, 40, 0.15);
+            border: 1px solid rgba(200, 80, 60, 0.28);
+        }
+
+        .compare-col.good {
+            background: rgba(50, 110, 60, 0.15);
+            border: 1px solid rgba(90, 160, 100, 0.28);
+        }
+
+        .compare-label {
+            font-family: var(--font-mono);
+            font-size: var(--small-size);
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            margin-bottom: 0.7em;
+        }
+
+        .compare-col.bad .compare-label {
+            color: #d47070;
+        }
+
+        .compare-col.good .compare-label {
+            color: #7cbd7c;
+        }
+
+        /* =====================================================
+           TITLE SLIDE SPECIFICS
+           ===================================================== */
+        .title-slide {
+            background: radial-gradient(ellipse at 8% 92%, rgba(101, 77, 36, 0.65) 0%, transparent 50%),
+            radial-gradient(ellipse at 92% 8%, rgba(233, 175, 107, 0.12) 0%, transparent 45%),
+            var(--bg-primary);
+        }
+
+        .title-slide .slide-content {
+            padding-left: clamp(2.5rem, 9vw, 9rem);
+            justify-content: center;
+        }
+
+        .title-eyebrow {
+            font-family: var(--font-mono);
+            font-size: var(--small-size);
+            color: var(--sunlit-clay);
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            margin-bottom: clamp(0.5rem, 1.5vh, 1.5rem);
+        }
+
+        .title-main {
+            font-family: var(--font-display);
+            font-size: clamp(2.2rem, 7vw, 6.5rem);
+            font-weight: 800;
+            line-height: 0.95;
+            color: var(--ivory-mist);
+            margin-bottom: clamp(0.5rem, 1vh, 1rem);
+        }
+
+        .title-main .accent-word {
+            color: var(--sunlit-clay);
+        }
+
+        .title-sub {
+            font-size: clamp(0.8rem, 1.6vw, 1.2rem);
+            font-weight: 300;
+            color: var(--pearl-beige);
+            margin-top: clamp(0.75rem, 2vh, 2rem);
+            max-width: 520px;
+            line-height: 1.5;
+        }
+
+        .tech-badges {
+            display: flex;
+            gap: clamp(0.4rem, 0.9vw, 0.7rem);
+            margin-top: clamp(0.9rem, 2.2vh, 2.2rem);
+            flex-wrap: wrap;
+        }
+
+        .tech-badge {
+            font-family: var(--font-mono);
+            font-size: clamp(0.55rem, 0.9vw, 0.75rem);
+            color: var(--bg-primary);
+            background: var(--sunlit-clay);
+            padding: 0.28em 0.8em;
+            border-radius: 2px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+        }
+
+        /* Decorative circles (title slide) */
+        .title-deco {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 38%;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .title-deco::before {
+            content: '';
+            position: absolute;
+            right: calc(-1 * clamp(60px, 12vw, 120px));
+            top: 8%;
+            width: clamp(200px, 40vw, 420px);
+            height: clamp(200px, 40vw, 420px);
+            border-radius: 50%;
+            border: clamp(30px, 6vw, 65px) solid rgba(101, 77, 36, 0.35);
+        }
+
+        .title-deco::after {
+            content: '';
+            position: absolute;
+            right: clamp(20px, 5vw, 60px);
+            bottom: 8%;
+            width: clamp(80px, 15vw, 170px);
+            height: clamp(80px, 15vw, 170px);
+            border-radius: 50%;
+            border: clamp(15px, 3vw, 30px) solid rgba(233, 175, 107, 0.18);
+        }
+
+        /* =====================================================
+           BIG QUOTE SLIDE
+           ===================================================== */
+        .quote-center {
+            align-items: center;
+            text-align: center;
+        }
+
+        .big-quote {
+            font-family: var(--font-display);
+            font-size: clamp(1.8rem, 5.5vw, 5rem);
+            font-weight: 800;
+            line-height: 1.08;
+            color: var(--ivory-mist);
+        }
+
+        .big-quote .dim {
+            /* WCAG fix: was rgba(…,0.28) → ~1.8:1 ❌
+               #8a8270 on #150e04 → ~5.3:1 ✓ AA */
+            color: #8a8270;
+        }
+
+        .big-quote .hi {
+            color: var(--sunlit-clay);
+        }
+
+        /* =====================================================
+           PIVOT SLIDE
+           ===================================================== */
+        .pivot-slide {
+            background: radial-gradient(ellipse at center, rgba(101, 77, 36, 0.28) 0%, #150e04 65%);
+        }
+
+        /* =====================================================
+           CONCLUSION SLIDE
+           ===================================================== */
+        .conclusion-slide {
+            background: radial-gradient(ellipse at center bottom, rgba(101, 77, 36, 0.5) 0%, #150e04 60%);
+        }
+
+    </style>
+</head>
+<body>
+
+<!-- Progress bar -->
+<div class="progress-bar" id="progressBar"></div>
+
+<!-- Navigation dots -->
+<nav class="nav-dots" id="navDots" aria-label="Navegação por slides"></nav>
+
+<!-- Keyboard hint -->
+<p class="keyboard-hint">← → ESPAÇO · navegar</p>
+
+<!-- ===========================================================
+     SLIDE 01 · TÍTULO
+     =========================================================== -->
+<!-- SPEAKER NOTE: Apresentação. "Bom dia, pessoal! Espero que todos estejam bem." -->
+<section class="slide title-slide">
+    <div class="accent-bar"></div>
+    <div class="title-deco" aria-hidden="true"></div>
+
+    <div class="slide-content">
+        <p class="title-eyebrow reveal">Java · Microserviços · Resiliência</p>
+        <h1 class="title-main reveal">
+            Testando<br>
+            <span class="accent-word">Falhas</span><br>
+            em Microserviços
+        </h1>
+        <p class="title-sub reveal">
+            Resiliência real com Testcontainers e Resilience4j
+        </p>
+        <div class="tech-badges reveal">
+            <span class="tech-badge">Java</span>
+            <span class="tech-badge">Testcontainers</span>
+            <span class="tech-badge">Resilience4j</span>
+        </div>
+    </div>
+
+    <span class="slide-num">01 / 21</span>
+</section>
+
+<!-- ===========================================================
+     SLIDE 02 · HOOK — A FRASE
+     =========================================================== -->
+<!-- SPEAKER NOTE: "Eu queria começar com uma frase simples, mas familiar…" Pausa dramática. -->
+<section class="slide"
+         style="background: radial-gradient(ellipse at 15% 85%, rgba(101,77,36,0.45) 0%, #150e04 55%), radial-gradient(ellipse at 85% 15%, rgba(233,175,107,0.07) 0%, transparent 50%), #150e04;">
+    <div class="slide-content quote-center">
+        <p class="section-label reveal">abertura</p>
+
+        <div class="big-quote reveal">
+            Seu sistema<br>
+            <span class="dim">funciona…</span>
+        </div>
+
+        <div class="big-quote reveal" style="margin-top: clamp(0.4rem, 1.5vh, 1.2rem);">
+            até <span class="hi">parar de</span><br>
+            <span class="hi">funcionar.</span>
+        </div>
+    </div>
+    <span class="slide-num">02 / 21</span>
+</section>
+
+<!-- ===========================================================
+     SLIDE 03 · AS PERGUNTAS
+     =========================================================== -->
+<!-- SPEAKER NOTE: "Quem aqui já testou com banco fora do ar? API lenta? Falhas intermitentes? Provavelmente quase ninguém." -->
+<section class="slide">
+    <div class="accent-bar"></div>
+    <div class="slide-content">
+        <p class="section-label reveal">reflexão</p>
+        <h2 class="reveal" style="margin-bottom: var(--content-gap);">Quem aqui já testou…</h2>
+
+        <div class="grid-2x2 reveal" style="margin-bottom: var(--content-gap);">
+            <div class="card">
+                <div class="card-icon">falha 01</div>
+                <div class="card-name">Banco fora do ar?</div>
+            </div>
+            <div class="card">
+                <div class="card-icon">falha 02</div>
+                <div class="card-name">API demorando 5 segundos?</div>
+            </div>
+            <div class="card" style="grid-column: 1 / -1;">
+                <div class="card-icon">falha 03</div>
+                <div class="card-name">Falhas intermitentes?</div>
+            </div>
+        </div>
+
+        <div class="highlight-box reveal">
+            <p>A maioria de nós testa sistemas… mas não testa <span class="accent">falhas.</span></p>
+        </div>
+    </div>
+    <span class="slide-num">03 / 21</span>
+</section>
+
+<!-- ===========================================================
+     SLIDE 04 · O ABISMO
+     =========================================================== -->
+<!-- SPEAKER NOTE: "Existe um abismo entre o ambiente de testes e o mundo real." -->
+<section class="slide" style="background: var(--bg-primary);">
+    <div class="accent-bar"></div>
+    <div class="slide-content">
+        <p class="section-label reveal">o problema</p>
+        <h2 class="reveal" style="margin-bottom: var(--content-gap);">O Abismo</h2>
+
+        <div class="grid-2 reveal" style="margin-bottom: var(--content-gap);">
+            <div class="card">
+                <div class="card-icon" style="color: var(--pearl-beige);">ambiente de testes</div>
+                <ul class="bullet-list" style="margin-top: 0.4em;">
+                    <li>Tudo responde rápido</li>
+                    <li>Tudo disponível</li>
+                    <li>Nada falha</li>
+                </ul>
+            </div>
+            <div class="card" style="border-color: rgba(233,175,107,0.38);">
+                <div class="card-icon">produção</div>
+                <ul class="bullet-list" style="margin-top: 0.4em;">
+                    <li>Latência de rede</li>
+                    <li>Timeout</li>
+                    <li>Falhas intermitentes</li>
+                    <li>Picos de carga</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="highlight-box reveal">
+            <p>Testamos em um <span style="color: var(--pearl-beige);">mundo perfeito…</span> e rodamos em um <span
+                    class="accent">mundo imperfeito.</span></p>
+        </div>
+    </div>
+    <span class="slide-num">04 / 21</span>
+</section>
+
+<!-- ===========================================================
+     SLIDE 05 · TESTES COMO FUNDAMENTO
+     =========================================================== -->
+<!-- SPEAKER NOTE: "Não estou falando de Postman. Estou falando de um fundamento de engenharia." Clean Code, TDD. -->
+<section class="slide"
+         style="background: radial-gradient(ellipse at 80% 20%, rgba(101,77,36,0.3) 0%, #150e04 55%), #150e04;">
+    <div class="accent-bar"></div>
+    <div class="slide-content">
+        <p class="section-label reveal">engenharia</p>
+        <h2 class="reveal" style="margin-bottom: var(--content-gap);">
+            Testes não são ferramenta.<br>
+            São um <span class="accent">fundamento.</span>
+        </h2>
+
+        <ul class="bullet-list reveal" style="margin-bottom: var(--content-gap);">
+            <li>Fazem parte do <strong>design</strong></li>
+            <li>Código sem testes é código <strong>incompleto</strong></li>
+            <li>Geram <strong>confiança</strong> para evoluir</li>
+        </ul>
+
+        <div class="flow-row reveal">
+            <span class="flow-pill">Clean Code</span>
+            <span class="flow-arrow">·</span>
+            <span class="flow-pill">The Clean Coder</span>
+            <span class="flow-arrow">·</span>
+            <span class="flow-pill">TDD: By Example</span>
+        </div>
+    </div>
+    <span class="slide-num">05 / 21</span>
+</section>
+
+<!-- ===========================================================
+     SLIDE 06 · O CICLO DE DOR
+     =========================================================== -->
+<!-- SPEAKER NOTE: "Times sem testes entram em um ciclo muito conhecido…" Descrever cada etapa. -->
+<section class="slide" style="background: var(--bg-primary);">
+    <div class="accent-bar"></div>
+    <div class="slide-content">
+        <p class="section-label reveal">o ciclo de dor</p>
+        <h2 class="reveal" style="margin-bottom: var(--content-gap);">Times sem testes…</h2>
+
+        <div class="flow-row reveal" style="margin-bottom: var(--content-gap); justify-content: flex-start;">
+            <span class="flow-pill">Entregas rápidas</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-pill">Código cresce</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-pill">Medo de mudar</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-pill">Reescrita</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-pill"
+                  style="color: var(--sunlit-clay); border-color: rgba(233,175,107,0.4);">Repete.</span>
+        </div>
+
+        <div class="highlight-box reveal">
+            <p>Sem testes, todo sistema caminha inevitavelmente para virar <span class="accent">legado.</span></p>
+        </div>
+    </div>
+    <span class="slide-num">06 / 21</span>
+</section>
+
+<!-- ===========================================================
+     SLIDE 07 · LIMITAÇÕES DOS TESTES TRADICIONAIS
+     =========================================================== -->
+<!-- SPEAKER NOTE: "Testes tradicionais nos dão uma sensação de segurança… mas muitas vezes é falsa." -->
+<section class="slide" style="background: var(--bg-primary);">
+    <div class="accent-bar"></div>
+    <div class="slide-content">
+        <p class="section-label reveal">limitações</p>
+        <h2 class="reveal" style="margin-bottom: var(--content-gap);">Segurança <span class="accent">falsa</span></h2>
+
+        <div class="grid-2 reveal" style="margin-bottom: var(--content-gap);">
+            <div class="card">
+                <div class="card-icon" style="color: #7cbd7c;">✓ testamos</div>
+                <ul class="bullet-list" style="margin-top: 0.4em;">
+                    <li>Fluxo feliz</li>
+                    <li>Respostas corretas</li>
+                    <li>Integrações mockadas</li>
+                </ul>
+            </div>
+            <div class="card" style="border-color: rgba(200,80,60,0.3);">
+                <div class="card-icon" style="color: #d47070;">✗ não testamos</div>
+                <ul class="bullet-list" style="margin-top: 0.4em;">
+                    <li>Latência real</li>
+                    <li>Timeout</li>
+                    <li>Falhas reais</li>
+                    <li>Instabilidade</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="highlight-box reveal">
+            <p>Testamos quando tudo dá certo… mas os problemas acontecem quando algo <span
+                    class="accent">dá errado.</span></p>
+        </div>
+    </div>
+    <span class="slide-num">07 / 21</span>
+</section>
+
+<!-- ===========================================================
+     SLIDE 08 · MICROSERVIÇOS AMPLIFICAM FALHAS
+     =========================================================== -->
+<!-- SPEAKER NOTE: "Microserviços não criam falhas… eles amplificam falhas." -->
+<section class="slide"
+         style="background: radial-gradient(ellipse at 20% 80%, rgba(101,77,36,0.35) 0%, #150e04 55%), #150e04;">
+    <div class="accent-bar"></div>
+    <div class="slide-content">
+        <p class="section-label reveal">microserviços</p>
+        <h2 class="reveal" style="margin-bottom: var(--content-gap);">
+            Não criam falhas…<br>
+            <span class="accent">amplificam.</span>
+        </h2>
+
+        <div class="flow-row reveal" style="margin-bottom: var(--content-gap);">
+            <span class="flow-pill">+ serviços</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-pill">+ dependências</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-pill">+ pontos de falha</span>
+        </div>
+
+        <ul class="bullet-list reveal">
+            <li>Falha em cascata</li>
+            <li>Timeout em cadeia</li>
+            <li>Saturação de recursos</li>
+            <li>Retry descontrolado</li>
+        </ul>
+    </div>
+    <span class="slide-num">08 / 21</span>
+</section>
+
+<!-- ===========================================================
+     SLIDE 09 · A PERGUNTA CERTA (PIVOT)
+     =========================================================== -->
+<!-- SPEAKER NOTE: "A pergunta deixa de ser 'SE vai falhar'. E passa a ser 'COMO o sistema reage'." -->
+<section class="slide pivot-slide">
+    <div class="slide-content quote-center">
+        <p class="section-label reveal" style="text-align:center;">pivot</p>
+
+        <div class="reveal" style="margin-bottom: var(--content-gap);">
+            <p style="font-size: clamp(0.9rem, 2vw, 1.4rem); color: var(--pearl-beige); opacity: 0.55; font-family: var(--font-display);">
+                A pergunta não é mais…
+            </p>
+            <p style="font-family: var(--font-display); font-weight: 700; font-size: clamp(1rem, 2.2vw, 1.7rem); color: var(--pearl-beige); opacity: 0.4; text-decoration: line-through; text-decoration-color: rgba(233,175,107,0.5);">
+                "Se vai falhar?"
+            </p>
+        </div>
+
+        <div class="big-quote reveal">
+            Como o sistema<br>
+            <span class="hi">reage</span><br>
+            quando falha?
+        </div>
+    </div>
+    <span class="slide-num">09 / 21</span>
+</section>
+
+<!-- ===========================================================
+     SLIDE 10 · PADRÕES DE RESILIÊNCIA
+     =========================================================== -->
+<!-- SPEAKER NOTE: "Resiliência = continuar operando mesmo com falhas. 4 padrões principais." -->
+<section class="slide" style="background: var(--bg-primary);">
+    <div class="accent-bar"></div>
+    <div class="slide-content">
+        <p class="section-label reveal">resiliência</p>
+        <h2 class="reveal" style="margin-bottom: var(--content-gap);">Padrões de <span class="accent">proteção</span>
+        </h2>
+
+        <div class="grid-2x2 reveal" style="margin-bottom: var(--content-gap);">
+            <div class="card">
+                <div class="card-icon">circuit breaker</div>
+                <div class="card-name">Disjuntor</div>
+                <div class="card-desc">Interrompe chamadas quando o serviço está falhando</div>
+            </div>
+            <div class="card">
+                <div class="card-icon">retry</div>
+                <div class="card-name">Retry</div>
+                <div class="card-desc">Tenta novamente em falhas temporárias</div>
+            </div>
+            <div class="card">
+                <div class="card-icon">timeout</div>
+                <div class="card-name">Timeout</div>
+                <div class="card-desc">Limita o tempo máximo de espera</div>
+            </div>
+            <div class="card">
+                <div class="card-icon">bulkhead</div>
+                <div class="card-name">Bulkhead</div>
+                <div class="card-desc">Isola recursos para conter falhas</div>
+            </div>
+        </div>
+
+        <div class="highlight-box reveal">
+            <p>Não evitam falhas… <span class="accent">evitam que se espalhem.</span></p>
+        </div>
+    </div>
+    <span class="slide-num">10 / 21</span>
+</section>
+
+<!-- ===========================================================
+     SLIDE 11 · RESILIENCE4J
+     =========================================================== -->
+<!-- SPEAKER NOTE: "No projeto, temos o ResilientPaymentCallService — uma classe dedicada exclusivamente a ser proxy AOP das anotações. A ordem das anotações importa: CircuitBreaker > TimeLimiter > Retry." -->
+<section class="slide"
+         style="background: radial-gradient(ellipse at 80% 80%, rgba(101,77,36,0.3) 0%, #150e04 55%), #150e04;">
+    <div class="accent-bar"></div>
+    <div class="slide-content">
+        <p class="section-label reveal">resilience4j · código real</p>
+        <h2 class="reveal" style="margin-bottom: var(--content-gap);">
+            <span class="accent">ResilientPaymentCallService</span>
+        </h2>
+
+        <div class="code-block reveal" style="margin-bottom: var(--content-gap);">
+    <pre><code><span class="code-annot">@CircuitBreaker</span><span class="code-plain">(name = </span><span
+            class="code-str">"paymentService"</span><span class="code-plain">, fallbackMethod = </span><span
+            class="code-str">"paymentFallback"</span><span class="code-plain">)</span>
+<span class="code-annot">@TimeLimiter</span><span class="code-plain">(name = </span><span class="code-str">"paymentService"</span><span
+                class="code-plain">, fallbackMethod = </span><span class="code-str">"paymentFallback"</span><span
+                class="code-plain">)</span>
+<span class="code-annot">@Retry</span><span class="code-plain">(name = </span><span
+                class="code-str">"paymentService"</span><span class="code-plain">)</span>
+<span class="code-kw">public</span> <span class="code-type">CompletableFuture</span><span class="code-plain">&lt;</span><span
+                class="code-type">OrderResponse</span><span class="code-plain">&gt; callPayment(</span>
+    <span class="code-type">Order</span><span class="code-plain"> order, </span><span class="code-type">CreateOrderRequest</span><span
+                class="code-plain"> request) {</span>
+    <span class="code-plain">...</span>
+<span class="code-plain">}</span></code></pre>
+        </div>
+
+        <div class="flow-row reveal">
+            <span class="flow-pill">CB: window=5, threshold=50%</span>
+            <span class="flow-pill">Timeout: 2s</span>
+            <span class="flow-pill">Retry: 3x / 500ms</span>
+        </div>
+
+        <div class="highlight-box reveal" style="margin-top: var(--content-gap);">
+            <p>Mas implementar não é suficiente…<br>
+                <span class="accent">Como sabemos que funciona?</span></p>
+        </div>
+    </div>
+    <span class="slide-num">11 / 21</span>
+</section>
+
+<!-- ===========================================================
+     SLIDE 12 · O PROBLEMA DE TESTAR FALHAS
+     =========================================================== -->
+<!-- SPEAKER NOTE: "Mocks continuam simulando um mundo perfeito. Latência real, instabilidade real — mocks não representam isso." -->
+<section class="slide"
+         style="background: radial-gradient(ellipse at 70% 30%, rgba(101,77,36,0.22) 0%, #150e04 60%), #150e04;">
+    <div class="accent-bar"></div>
+    <div class="slide-content">
+        <p class="section-label reveal">o problema</p>
+
+        <ul class="bullet-list reveal" style="margin-bottom: var(--content-gap); max-width: 560px;">
+            <li>Mocks não representam o mundo real</li>
+            <li>Não simulam latência real</li>
+            <li>Não simulam instabilidade</li>
+        </ul>
+
+        <div class="reveal">
+            <p style="font-family: var(--font-display); font-size: clamp(1.1rem, 2.6vw, 2rem); font-weight: 700; color: var(--ivory-mist); line-height: 1.3;">
+                "Se você nunca testou uma falha…
+            </p>
+            <p style="font-family: var(--font-display); font-size: clamp(1.1rem, 2.6vw, 2rem); font-weight: 700; color: var(--sunlit-clay); line-height: 1.3;">
+                você não sabe como seu sistema reage."
+            </p>
+        </div>
+    </div>
+    <span class="slide-num">12 / 21</span>
+</section>
+
+<!-- ===========================================================
+     SLIDE 13 · TESTCONTAINERS
+     =========================================================== -->
+<!-- SPEAKER NOTE: "No projeto usamos dois containers: PostgreSQLContainer para o banco real, e WireMockServer para simular o payment-service com comportamentos controláveis. @DynamicPropertySource injeta as URLs antes do contexto Spring subir." -->
+<section class="slide" style="background: var(--bg-primary);">
+    <div class="accent-bar"></div>
+    <div class="slide-content">
+        <p class="section-label reveal">solução</p>
+        <h2 class="reveal" style="margin-bottom: var(--content-gap);">
+            <span class="accent">Testcontainers</span>
+        </h2>
+
+        <div class="code-block reveal" style="margin-bottom: var(--content-gap);">
+    <pre><code><span class="code-annot">@Container</span>
+<span class="code-kw">static</span> <span class="code-type">PostgreSQLContainer</span><span class="code-plain">&lt;?&gt; postgres</span>
+    <span class="code-plain">= </span><span class="code-kw">new</span> <span
+                class="code-type">PostgreSQLContainer</span><span class="code-plain">(</span><span class="code-str">"postgres:16-alpine"</span><span
+                class="code-plain">);</span>
+
+<span class="code-kw">static</span> <span class="code-type">WireMockServer</span><span
+                class="code-plain"> wireMock; </span><span class="code-comment">// simula payment-service</span>
+
+<span class="code-annot">@DynamicPropertySource</span>
+<span class="code-kw">static void</span> <span class="code-plain">configureProperties(</span><span class="code-type">DynamicPropertyRegistry</span><span
+                class="code-plain"> r) {</span>
+    <span class="code-plain">r.add(</span><span class="code-str">"spring.datasource.url"</span><span class="code-plain">, postgres::getJdbcUrl);</span>
+    <span class="code-plain">r.add(</span><span class="code-str">"payment.base-url"</span><span class="code-plain">, () -&gt; </span><span
+                class="code-str">"http://localhost:"</span><span class="code-plain"> + wireMock.port());</span>
+<span class="code-plain">}</span></code></pre>
+        </div>
+
+        <div class="highlight-box reveal">
+            <p>Agora conseguimos trazer o caos da produção… <span class="accent">para dentro do teste.</span></p>
+        </div>
+    </div>
+    <span class="slide-num">13 / 21</span>
+</section>
+
+<!-- ===========================================================
+     SLIDE 14 · ARQUITETURA DA DEMO
+     =========================================================== -->
+<!-- SPEAKER NOTE: "O projeto tem dois serviços Spring Boot. order-service recebe o pedido, persiste no PostgreSQL e chama payment-service. O payment-service tem um endpoint admin que muda seu comportamento em tempo real — isso é nossa alavanca de caos." -->
+<section class="slide"
+         style="background: radial-gradient(ellipse at 20% 20%, rgba(101,77,36,0.28) 0%, #150e04 55%), #150e04;">
+    <div class="accent-bar"></div>
+    <div class="slide-content">
+        <p class="section-label reveal">demonstração · arquitetura real</p>
+        <h2 class="reveal" style="margin-bottom: var(--content-gap);">O projeto</h2>
+
+        <div class="flow-row reveal" style="justify-content: center; margin-bottom: var(--content-gap);">
+            <div class="card" style="text-align: center; min-width: clamp(6rem, 13vw, 10rem);">
+                <div class="card-icon">:8080</div>
+                <div class="card-name">order-service</div>
+                <div class="card-desc">POST /orders</div>
+            </div>
+            <span class="flow-arrow" style="font-size: clamp(1.2rem, 2.5vw, 1.8rem);">→</span>
+            <div class="card"
+                 style="text-align: center; min-width: clamp(6rem, 13vw, 10rem); border-color: var(--border-warm);">
+                <div class="card-icon">:8081</div>
+                <div class="card-name">payment-service</div>
+                <div class="card-desc">POST /payments</div>
+            </div>
+            <span class="flow-arrow" style="font-size: clamp(1.2rem, 2.5vw, 1.8rem);">↓</span>
+            <div class="card" style="text-align: center; min-width: clamp(6rem, 13vw, 10rem);">
+                <div class="card-icon">:5432</div>
+                <div class="card-name">PostgreSQL</div>
+                <div class="card-desc">orders DB</div>
+            </div>
+        </div>
+
+        <div class="highlight-box reveal">
+            <p><span class="code-annot" style="font-family: var(--font-mono); font-size: 0.9em;">POST /admin/mode {"mode":"DELAY"}</span><br>
+                <span class="accent">Injeção de caos sem recompilar nada.</span></p>
+        </div>
+    </div>
+    <span class="slide-num">14 / 21</span>
+</section>
+
+<!-- ===========================================================
+     SLIDE 15 · DEMO — INJETANDO CAOS
+     =========================================================== -->
+<!-- SPEAKER NOTE: "payment-service tem 4 modos que controlamos em runtime via POST /admin/mode. NORMAL funciona. DELAY dorme 5 segundos. ERROR sempre lança exceção. FLAKY alterna: chamadas ímpares falham, pares passam. É assim que simulamos o mundo real sem mocks." -->
+<section class="slide" style="background: var(--bg-primary);">
+    <div class="accent-bar" style="background: linear-gradient(180deg, transparent, #c05040, transparent);"></div>
+    <div class="slide-content">
+        <p class="section-label reveal" style="color: #d47070;">demo · injetando caos</p>
+        <h2 class="reveal" style="margin-bottom: var(--content-gap);">PaymentMode</h2>
+
+        <div class="grid-2x2 reveal" style="margin-bottom: var(--content-gap);">
+            <div class="card" style="border-color: rgba(100,160,100,0.3);">
+                <div class="card-icon" style="color: #7cbd7c;">NORMAL</div>
+                <div class="card-desc">Pagamento aprovado normalmente</div>
+            </div>
+            <div class="card" style="border-color: rgba(200,160,60,0.3);">
+                <div class="card-icon" style="color: #d4aa60;">DELAY</div>
+                <div class="card-desc">Thread.sleep(5000) — dispara Timeout</div>
+            </div>
+            <div class="card" style="border-color: rgba(200,80,60,0.3);">
+                <div class="card-icon" style="color: #d47070;">ERROR</div>
+                <div class="card-desc">Lança exceção — dispara Retry + CB</div>
+            </div>
+            <div class="card" style="border-color: rgba(160,100,200,0.3);">
+                <div class="card-icon" style="color: #b07cd4;">FLAKY</div>
+                <div class="card-desc">Ímpares falham, pares passam — Retry recovery</div>
+            </div>
+        </div>
+
+        <div class="highlight-box reveal" style="border-left-color: #c05040; background: rgba(180,60,40,0.08);">
+            <p><span style="font-family: var(--font-mono); font-size: 0.88em; color: var(--pearl-beige);">POST /admin/mode</span>
+                · um endpoint que muda tudo — <span style="color: #d47070;">sem recompilar.</span></p>
+        </div>
+    </div>
+    <span class="slide-num">15 / 21</span>
+</section>
+
+<!-- ===========================================================
+     SLIDE 16 · DEMO — COM RESILIENCE4J
+     =========================================================== -->
+<!-- SPEAKER NOTE: "Com mode=DELAY: TimeLimiter dispara em 2s, fallback salva o pedido como PENDING+UNAVAILABLE. Com mode=ERROR: Retry tenta 3x (500ms entre tentativas), esgota, CB acumula falhas. Com mode=FLAKY: Retry recupera na 2ª chamada. Modo=NORMAL novamente: CB entra em HALF-OPEN, deixa 2 chamadas de teste passar, e fecha." -->
+<section class="slide" style="background: var(--bg-primary);">
+    <div class="accent-bar"></div>
+    <div class="slide-content">
+        <p class="section-label reveal">demo · resilience4j</p>
+        <h2 class="reveal" style="margin-bottom: var(--content-gap);">Com proteção</h2>
+
+        <div class="code-block reveal" style="margin-bottom: var(--content-gap);">
+<pre><code><span class="code-comment">// DELAY (5s) → TimeLimiter cancela em 2s</span>
+<span class="code-plain">order.status = PENDING</span>
+<span class="code-plain">paymentStatus = TIMEOUT</span>
+
+<span class="code-comment">// ERROR → Retry 3x (500ms) → CB: 50% falha → OPEN</span>
+<span class="code-plain">order.status = PENDING</span>
+<span class="code-plain">paymentStatus = UNAVAILABLE</span>
+
+<span class="code-comment">// FLAKY → 1ª falha → Retry → 2ª ok → recuperado</span>
+<span class="code-plain">order.status = CONFIRMED</span>
+<span class="code-plain">paymentStatus = APPROVED</span></code></pre>
+        </div>
+
+        <div class="flow-row reveal" style="margin-bottom: var(--element-gap);">
+            <span class="flow-pill">CB: window=5, min=3, 50%</span>
+            <span class="flow-pill">Timeout: 2s</span>
+            <span class="flow-pill">Retry: 3x, 500ms</span>
+        </div>
+
+        <div class="highlight-box reveal" style="margin-top: var(--element-gap);">
+            <p>Fallback persiste o pedido como PENDING — <span class="accent">sem perda de dados.</span></p>
+        </div>
+    </div>
+    <span class="slide-num">16 / 21</span>
+</section>
+
+<!-- ===========================================================
+     SLIDE 17 · DEMO — TESTANDO COM TESTCONTAINERS
+     =========================================================== -->
+<!-- SPEAKER NOTE: "OrderEndToEndTest tem 4 cenários. WireMock controla exatamente o que payment-service retorna. PostgreSQL real persiste os pedidos. @DynamicPropertySource configura URLs antes do contexto Spring subir — timeout acelerado pra 1s nos testes pra não esperar 2s." -->
+<section class="slide"
+         style="background: radial-gradient(ellipse at 75% 75%, rgba(101,77,36,0.3) 0%, #150e04 55%), #150e04;">
+    <div class="accent-bar"></div>
+    <div class="slide-content">
+        <p class="section-label reveal">demo · orderendtoendtest</p>
+        <h2 class="reveal" style="margin-bottom: var(--content-gap);">4 cenários automatizados</h2>
+
+        <div class="grid-2x2 reveal" style="margin-bottom: var(--content-gap);">
+            <div class="card">
+                <div class="card-icon" style="color: #7cbd7c;">scenario 1</div>
+                <div class="card-name">Normal Flow</div>
+                <div class="card-desc">WireMock 200 → CONFIRMED + APPROVED</div>
+            </div>
+            <div class="card" style="border-color: rgba(200,160,60,0.3);">
+                <div class="card-icon" style="color: #d4aa60;">scenario 2</div>
+                <div class="card-name">Timeout → Fallback</div>
+                <div class="card-desc">WireMock delay 3s &gt; timeout 1s → PENDING</div>
+            </div>
+            <div class="card" style="border-color: rgba(160,100,200,0.3);">
+                <div class="card-icon" style="color: #b07cd4;">scenario 3</div>
+                <div class="card-name">Flaky → Retry Recovery</div>
+                <div class="card-desc">1ª call 500, 2ª call 200 → CONFIRMED</div>
+            </div>
+            <div class="card" style="border-color: rgba(200,80,60,0.3);">
+                <div class="card-icon" style="color: #d47070;">scenario 4</div>
+                <div class="card-name">Circuit Breaker</div>
+                <div class="card-desc">5× 500 → CB OPEN → fallback direto</div>
+            </div>
+        </div>
+
+        <div class="highlight-box reveal">
+            <p>Agora estamos testando <span class="accent">comportamento real</span> — não só código.</p>
+        </div>
+    </div>
+    <span class="slide-num">17 / 21</span>
+</section>
+
+<!-- ===========================================================
+     SLIDE 18 · COMPARAÇÃO
+     =========================================================== -->
+<!-- SPEAKER NOTE: "A diferença é clara. Não é sobre evitar falhas… é sobre sobreviver a elas." -->
+<section class="slide" style="background: var(--bg-primary);">
+    <div class="accent-bar"></div>
+    <div class="slide-content">
+        <p class="section-label reveal">comparação</p>
+        <h2 class="reveal" style="margin-bottom: var(--content-gap);">Com vs Sem</h2>
+
+        <div class="grid-2 reveal" style="margin-bottom: var(--content-gap);">
+            <div class="compare-col bad">
+                <p class="compare-label">Sem resiliência</p>
+                <ul class="bullet-list">
+                    <li>Sistema falha completamente</li>
+                    <li>Propagação de erro</li>
+                    <li>Indisponibilidade total</li>
+                </ul>
+            </div>
+            <div class="compare-col good">
+                <p class="compare-label">Com resiliência</p>
+                <ul class="bullet-list">
+                    <li>Sistema continua operando</li>
+                    <li>Falhas isoladas</li>
+                    <li>Degradação controlada</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="highlight-box reveal">
+            <p>Não é sobre <em>evitar</em> falhas… é sobre <span class="accent">sobreviver a elas.</span></p>
+        </div>
+    </div>
+    <span class="slide-num">18 / 21</span>
+</section>
+
+<!-- ===========================================================
+     SLIDE 19 · BOAS PRÁTICAS
+     =========================================================== -->
+<!-- SPEAKER NOTE: "Algumas boas práticas importantes. Highlight: fallback e degradação funcional são frequentemente esquecidos." -->
+<section class="slide"
+         style="background: radial-gradient(ellipse at 10% 50%, rgba(101,77,36,0.3) 0%, #150e04 55%), #150e04;">
+    <div class="accent-bar"></div>
+    <div class="slide-content">
+        <p class="section-label reveal">boas práticas</p>
+        <h2 class="reveal" style="margin-bottom: var(--content-gap);">Checklist</h2>
+
+        <div class="grid-2 reveal">
+            <ul class="bullet-list">
+                <li>Timeout <strong>sempre</strong></li>
+                <li>Retry com <strong>limite</strong></li>
+                <li>Monitorar circuit breaker</li>
+                <li>Testar falhas <strong>explicitamente</strong></li>
+            </ul>
+            <ul class="bullet-list">
+                <li>Não confiar só em mocks</li>
+                <li>Definir <strong>fallback</strong></li>
+                <li>Pensar em degradação funcional</li>
+                <li>Observar métricas</li>
+            </ul>
+        </div>
+    </div>
+    <span class="slide-num">19 / 21</span>
+</section>
+
+<!-- ===========================================================
+     SLIDE 20 · INDO ALÉM
+     =========================================================== -->
+<!-- SPEAKER NOTE: "Aqui você sai de testes e entra em engenharia de confiabilidade." -->
+<section class="slide" style="background: var(--bg-primary);">
+    <div class="accent-bar"></div>
+    <div class="slide-content">
+        <p class="section-label reveal">avançado</p>
+        <h2 class="reveal" style="margin-bottom: var(--content-gap);">Indo além…</h2>
+
+        <div class="grid-3 reveal" style="margin-bottom: var(--content-gap);">
+            <div class="card" style="text-align: center;">
+                <div class="card-icon">próximo passo</div>
+                <div class="card-name">Chaos Engineering</div>
+                <div class="card-desc">Falhas intencionais em ambiente controlado</div>
+            </div>
+            <div class="card" style="text-align: center;">
+                <div class="card-icon">ferramenta</div>
+                <div class="card-name">Toxiproxy</div>
+                <div class="card-desc">Simula condições adversas de rede</div>
+            </div>
+            <div class="card" style="text-align: center;">
+                <div class="card-icon">pilar</div>
+                <div class="card-name">Observabilidade</div>
+                <div class="card-desc">Logs · Métricas · Tracing</div>
+            </div>
+        </div>
+
+        <div class="highlight-box reveal">
+            <p>De <span style="color: var(--pearl-beige);">testes</span> para <span class="accent">engenharia de confiabilidade.</span>
+            </p>
+        </div>
+    </div>
+    <span class="slide-num">20 / 21</span>
+</section>
+
+<!-- ===========================================================
+     SLIDE 21 · CONCLUSÃO
+     =========================================================== -->
+<!-- SPEAKER NOTE: "Obrigado! Alguém já teve problema em produção que teria sido evitado testando falhas?" -->
+<section class="slide conclusion-slide">
+    <div class="slide-content quote-center">
+        <p class="section-label reveal" style="text-align:center;">conclusão</p>
+
+        <ul class="bullet-list reveal"
+            style="text-align: left; max-width: min(90vw, 480px); margin: 0 auto var(--content-gap);">
+            <li>Testes tradicionais são insuficientes</li>
+            <li>Microserviços aumentam a complexidade</li>
+            <li>Falhas são inevitáveis</li>
+            <li>Resiliência é obrigatória</li>
+        </ul>
+
+        <div class="reveal" style="max-width: min(90vw, 680px);">
+            <p style="font-family: var(--font-display); font-size: clamp(1rem, 2.6vw, 2rem); font-weight: 700; color: var(--ivory-mist); line-height: 1.3; margin-bottom: 0.3em;">
+                "Um sistema não é bom quando funciona…
+            </p>
+            <p style="font-family: var(--font-display); font-size: clamp(1rem, 2.6vw, 2rem); font-weight: 700; color: var(--sunlit-clay); line-height: 1.3;">
+                é bom quando continua funcionando mesmo quando algo dá errado."
+            </p>
+        </div>
+
+        <div class="tech-badges reveal" style="justify-content: center; margin-top: var(--content-gap);">
+            <span class="tech-badge">Obrigado!</span>
+        </div>
+    </div>
+    <span class="slide-num">21 / 21</span>
+</section>
+
+<!-- ===========================================================
+     JAVASCRIPT — SlidePresentation Controller
+     =========================================================== -->
+<script>
+    /* === SLIDE PRESENTATION CONTROLLER (animated transitions) === */
+    class SlidePresentation {
+        constructor() {
+            this.slides = Array.from(document.querySelectorAll('.slide'));
+            this.currentIndex = 0;
+            this.isAnimating = false;
+            this.TRANSITION_MS = 720; // matches CSS transition duration
+
+            this.progressBar = document.getElementById('progressBar');
+            this.navDotsContainer = document.getElementById('navDots');
+
+            this.initSlides();
+            this.setupNavDots();
+            this.setupKeyboardNav();
+            this.setupTouchNav();
+            this.setupWheelNav();
+        }
+
+        /* -------------------------------------------------------
+           Set a slide's positional state without triggering its
+           CSS transition (instant reposition for skipped slides).
+           ------------------------------------------------------- */
+        setInstant(slide, state) {
+            slide.style.transition = 'none';
+            slide.classList.remove('is-active', 'is-above', 'is-below');
+            if (state === 'above') slide.classList.add('is-above');
+            if (state === 'below') slide.classList.add('is-below');
+            if (state === 'active') slide.classList.add('is-active');
+            slide.offsetHeight; // force reflow before re-enabling transition
+            slide.style.transition = '';
+        }
+
+        /* -------------------------------------------------------
+           Place all slides into their initial positions and
+           activate slide 0.
+           ------------------------------------------------------- */
+        initSlides() {
+            this.slides.forEach((slide, i) => {
+                if (i === 0) {
+                    slide.classList.add('is-active');
+                    // Fire reveal animations after first paint
+                    requestAnimationFrame(() =>
+                        requestAnimationFrame(() => slide.classList.add('visible'))
+                    );
+                } else {
+                    slide.classList.add('is-below');
+                }
+            });
+            this.updateProgress(0);
+        }
+
+        /* -------------------------------------------------------
+           Build nav dots (always clear first to avoid duplicates).
+           ------------------------------------------------------- */
+        setupNavDots() {
+            this.navDotsContainer.innerHTML = '';
+            this.slides.forEach((_, i) => {
+                const btn = document.createElement('button');
+                btn.className = 'nav-dot' + (i === 0 ? ' active' : '');
+                btn.setAttribute('aria-label', `Slide ${i + 1}`);
+                btn.addEventListener('click', () => this.goTo(i));
+                this.navDotsContainer.appendChild(btn);
+            });
+        }
+
+        /* Keyboard: arrows, space, page up/down, home/end */
+        setupKeyboardNav() {
+            document.addEventListener('keydown', e => {
+                const fwd = ['ArrowDown', 'ArrowRight', ' ', 'PageDown'];
+                const bwd = ['ArrowUp', 'ArrowLeft', 'PageUp'];
+                if (fwd.includes(e.key)) {
+                    e.preventDefault();
+                    this.goTo(this.currentIndex + 1);
+                }
+                if (bwd.includes(e.key)) {
+                    e.preventDefault();
+                    this.goTo(this.currentIndex - 1);
+                }
+                if (e.key === 'Home') {
+                    e.preventDefault();
+                    this.goTo(0);
+                }
+                if (e.key === 'End') {
+                    e.preventDefault();
+                    this.goTo(this.slides.length - 1);
+                }
+            });
+        }
+
+        /* Touch / swipe */
+        setupTouchNav() {
+            let startY = 0, startX = 0;
+            document.addEventListener('touchstart', e => {
+                startY = e.touches[0].clientY;
+                startX = e.touches[0].clientX;
+            }, {passive: true});
+            document.addEventListener('touchend', e => {
+                const dy = startY - e.changedTouches[0].clientY;
+                const dx = startX - e.changedTouches[0].clientX;
+                if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 50)
+                    this.goTo(this.currentIndex + (dy > 0 ? 1 : -1));
+            }, {passive: true});
+        }
+
+        /* Mouse wheel — time-gated to one slide per gesture */
+        setupWheelNav() {
+            let lastWheel = 0;
+            document.addEventListener('wheel', e => {
+                const now = Date.now();
+                if (now - lastWheel < this.TRANSITION_MS + 150) return;
+                lastWheel = now;
+                this.goTo(this.currentIndex + (e.deltaY > 0 ? 1 : -1));
+            }, {passive: true});
+        }
+
+        /* -------------------------------------------------------
+           Core navigation: animate from currentIndex → targetIdx.
+
+           Strategy:
+           1. Instantly reposition every slide that isn't involved
+              in this transition to its correct resting position
+              (above or below), without triggering the CSS transition.
+           2. Ensure the target slide starts at its incoming position
+              (instantly), then animate it to is-active.
+           3. Animate the current slide to its exit position.
+           4. Trigger .reveal animations on the incoming slide ~200ms
+              after the transition starts (mid-flight looks great).
+           ------------------------------------------------------- */
+        goTo(targetIdx) {
+            if (this.isAnimating) return;
+            const t = Math.max(0, Math.min(this.slides.length - 1, targetIdx));
+            if (t === this.currentIndex) return;
+
+            this.isAnimating = true;
+            const from = this.currentIndex;
+            const forward = t > from;
+
+            // 1. Instantly reposition bystander slides
+            this.slides.forEach((slide, i) => {
+                if (i === from || i === t) return;
+                this.setInstant(slide, i < t ? 'above' : 'below');
+                slide.classList.remove('visible');
+            });
+
+            // 2. Snap target to its incoming edge (no transition)
+            this.setInstant(this.slides[t], forward ? 'below' : 'above');
+            this.slides[t].classList.remove('visible');
+
+            // 3. Double-rAF: browser sees the snap before we animate
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+
+                // Exit: current slide leaves in the forward/backward direction
+                this.slides[from].classList.remove('is-active');
+                this.slides[from].classList.add(forward ? 'is-above' : 'is-below');
+
+                // Enter: target slide slides in from its edge
+                this.slides[t].classList.remove('is-above', 'is-below');
+                this.slides[t].classList.add('is-active');
+
+                // 4. Fire .reveal animations partway through the transition
+                setTimeout(() => this.slides[t].classList.add('visible'), 220);
+            }));
+
+            this.currentIndex = t;
+            this.updateProgress(t);
+            this.updateDots(t);
+
+            setTimeout(() => {
+                this.isAnimating = false;
+            }, this.TRANSITION_MS + 80);
+        }
+
+        updateProgress(idx) {
+            const pct = (idx / (this.slides.length - 1)) * 100;
+            this.progressBar.style.width = pct + '%';
+        }
+
+        updateDots(idx) {
+            this.navDotsContainer.querySelectorAll('.nav-dot')
+                .forEach((d, i) => d.classList.toggle('active', i === idx));
+        }
+    }
+
+    new SlidePresentation();
+</script>
+
+</body>
+</html>
