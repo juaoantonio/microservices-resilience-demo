@@ -4,8 +4,11 @@ import com.demo.order.dto.CreateOrderRequest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import io.github.resilience4j.retry.RetryRegistry;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.MethodOrderer.MethodName;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -23,12 +26,14 @@ import java.time.Duration;
 import java.util.Map;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.stubbing.Scenario.STARTED;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@TestMethodOrder(MethodName.class)
 class OrderEndToEndTest {
 
     @Container
@@ -67,10 +72,17 @@ class OrderEndToEndTest {
     @BeforeEach
     void resetWireMock() {
         wireMock.resetAll();
+        circuitBreakerRegistry.circuitBreaker("paymentService").reset();
     }
 
     @Autowired
     TestRestTemplate restTemplate;
+
+    @Autowired
+    CircuitBreakerRegistry circuitBreakerRegistry;
+
+    @Autowired
+    RetryRegistry retryRegistry;
 
     private CreateOrderRequest orderRequest() {
         CreateOrderRequest req = new CreateOrderRequest();
@@ -91,14 +103,16 @@ class OrderEndToEndTest {
 
         ResponseEntity<Map> response = restTemplate.postForEntity("/orders", orderRequest(), Map.class);
 
-        assertThat(response.getStatusCode()).isIn(HttpStatus.CREATED, HttpStatus.OK);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getBody()).containsKey("orderId");
         assertThat(response.getBody().get("status")).isEqualTo("CONFIRMED");
         assertThat(response.getBody().get("paymentStatus")).isEqualTo("APPROVED");
+        assertThat(response.getBody().get("paymentId")).isEqualTo("pay-001");
+        assertThat(response.getBody().get("message")).isEqualTo("Order created and payment approved");
     }
 
     @Test
-    @DisplayName("Cenário 2: Pagamento lento — TimeLimiter dispara, fallback retorna PENDING")
+    @DisplayName("Cenário 2: Pagamento lento — TimeLimiter dispara, fallback retorna PENDING/UNAVAILABLE")
     void scenario2_timeout_fallback() {
         wireMock.stubFor(post(urlEqualTo("/payments"))
                 .willReturn(aResponse()
@@ -109,32 +123,43 @@ class OrderEndToEndTest {
 
         ResponseEntity<Map> response = restTemplate.postForEntity("/orders", orderRequest(), Map.class);
 
-        assertThat(response.getStatusCode()).isIn(HttpStatus.CREATED, HttpStatus.OK);
-        String status = (String) response.getBody().get("status");
-        assertThat(status).isIn("PENDING", "FAILED");
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody().get("status")).isEqualTo("PENDING");
+        assertThat(response.getBody().get("paymentStatus")).isEqualTo("UNAVAILABLE");
+        assertThat(response.getBody().get("message")).isEqualTo("Payment service temporarily unavailable. Order is pending.");
+        assertThat(response.getBody().get("paymentId")).isNull();
     }
 
     @Test
     @DisplayName("Cenário 3: Pagamento instável — Retry recupera na segunda tentativa")
     void scenario3_flaky_retry_recovers() {
         wireMock.stubFor(post(urlEqualTo("/payments"))
-                .inScenario("flaky")
-                .whenScenarioStateIs("Started")
-                .willReturn(aResponse().withStatus(500).withBody("{\"error\":\"transient\"}"))
-                .willSetStateTo("retry1"));
+                .inScenario("flaky-payment")
+                .whenScenarioStateIs(STARTED)
+                .willReturn(aResponse()
+                        .withStatus(500)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"error\":\"temporary failure\"}"))
+                .willSetStateTo("SECOND_ATTEMPT"));
 
         wireMock.stubFor(post(urlEqualTo("/payments"))
-                .inScenario("flaky")
-                .whenScenarioStateIs("retry1")
+                .inScenario("flaky-payment")
+                .whenScenarioStateIs("SECOND_ATTEMPT")
                 .willReturn(aResponse()
                         .withStatus(200)
                         .withHeader("Content-Type", "application/json")
-                        .withBody("{\"paymentId\":\"pay-retry\",\"status\":\"APPROVED\",\"message\":\"OK\"}")));
+                        .withBody("{\"paymentId\":\"pay-002\",\"status\":\"APPROVED\",\"message\":\"OK\"}")));
 
         ResponseEntity<Map> response = restTemplate.postForEntity("/orders", orderRequest(), Map.class);
 
-        assertThat(response.getStatusCode()).isIn(HttpStatus.CREATED, HttpStatus.OK);
-        assertThat(response.getBody()).containsKey("status");
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody()).containsKey("orderId");
+        assertThat(response.getBody().get("status")).isEqualTo("CONFIRMED");
+        assertThat(response.getBody().get("paymentStatus")).isEqualTo("APPROVED");
+        assertThat(response.getBody().get("paymentId")).isEqualTo("pay-002");
+        assertThat(response.getBody().get("message")).isEqualTo("Order created and payment approved");
+
+        wireMock.verify(2, postRequestedFor(urlEqualTo("/payments")));
     }
 
     @Test
@@ -148,14 +173,15 @@ class OrderEndToEndTest {
             restTemplate.postForEntity("/orders", orderRequest(), Map.class);
         }
 
-        // After circuit opens, subsequent calls should use fallback immediately
+        // After circuit opens, subsequent calls must use fallback immediately (no WireMock hit)
         Awaitility.await()
                 .atMost(Duration.ofSeconds(10))
                 .untilAsserted(() -> {
                     ResponseEntity<Map> response = restTemplate.postForEntity("/orders", orderRequest(), Map.class);
-                    assertThat(response.getStatusCode()).isIn(HttpStatus.CREATED, HttpStatus.OK);
-                    String status = (String) response.getBody().get("status");
-                    assertThat(status).isIn("PENDING", "FAILED");
+                    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+                    assertThat(response.getBody().get("status")).isEqualTo("PENDING");
+                    assertThat(response.getBody().get("paymentStatus")).isEqualTo("UNAVAILABLE");
+                    assertThat(response.getBody().get("message")).isEqualTo("Payment service temporarily unavailable. Order is pending.");
                 });
     }
 }

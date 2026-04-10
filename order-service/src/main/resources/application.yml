@@ -52,6 +52,7 @@ resilience4j:
         maxAttempts: 3
         waitDuration: 500ms
         retryExceptions:
+          - java.util.concurrent.CompletionException
           - com.demo.order.exception.PaymentIntegrationException
           - com.demo.order.exception.PaymentUnavailableException
       database:

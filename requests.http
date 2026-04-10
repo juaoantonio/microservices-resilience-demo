@@ -72,7 +72,7 @@ Content-Type: application/json
 }
 
 
-### Definir modo FLAKY (alterna erro/sucesso a cada chamada)
+### Definir modo FLAKY (1ª chamada falha, 2ª chamada passa)
 POST {{payment_url}}/admin/mode
 Content-Type: application/json
 
@@ -109,6 +109,8 @@ Content-Type: application/json
 ### =============================================================
 ### CENÁRIO 2 — Latência / Timeout
 ### Esperado: status=PENDING, paymentStatus=UNAVAILABLE
+### Observação: o TimeLimiter dispara no wrapper async e o fallback
+###             preserva o pedido como pendente
 ### =============================================================
 
 ### Passo 1: ativar modo DELAY
@@ -133,7 +135,9 @@ Content-Type: application/json
 
 ### =============================================================
 ### CENÁRIO 3 — Erros intermitentes (Retry)
-### Esperado: retry tenta recuperar; confirmar ou degradar
+### Esperado: status=CONFIRMED, paymentStatus=APPROVED
+### Observação: a 1ª chamada ao payment-service falha com 500,
+###             o Retry reinvoca a execução e a 2ª chamada passa
 ### =============================================================
 
 ### Passo 1: ativar modo FLAKY
@@ -145,7 +149,7 @@ Content-Type: application/json
 }
 
 
-### Passo 2: criar pedido (repetir várias vezes para observar alternância)
+### Passo 2: criar pedido
 POST {{order_url}}/orders
 Content-Type: application/json
 
@@ -154,6 +158,10 @@ Content-Type: application/json
   "customerId": "cust-cenario3",
   "amount": 75.00
 }
+
+
+### Passo 3: consultar métricas/eventos para observar retry e chamadas bem-sucedidas
+GET {{order_url}}/actuator/metrics/resilience4j.circuitbreaker.calls
 
 
 ### =============================================================

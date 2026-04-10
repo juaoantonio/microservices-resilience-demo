@@ -1621,30 +1621,26 @@
 <!-- ===========================================================
      SLIDE 11 · RESILIENCE4J
      =========================================================== -->
-<!-- SPEAKER NOTE: "No projeto, temos o ResilientPaymentCallService — uma classe dedicada exclusivamente a ser proxy AOP das anotações. A ordem das anotações importa: CircuitBreaker > TimeLimiter > Retry." -->
+<!-- SPEAKER NOTE: "No projeto, separamos em duas camadas. PaymentExecutionService é síncrono e recebe Retry + CircuitBreaker. ResilientPaymentCallService fica só com o TimeLimiter em volta do CompletableFuture. Assim o Retry enxerga a exceção real antes da borda assíncrona." -->
 <section class="slide"
          style="background: radial-gradient(ellipse at 80% 80%, rgba(101,77,36,0.3) 0%, #150e04 55%), #150e04;">
     <div class="accent-bar"></div>
     <div class="slide-content">
         <p class="section-label reveal">resilience4j · código real</p>
         <h2 class="reveal" style="margin-bottom: var(--content-gap);">
-            <span class="accent">ResilientPaymentCallService</span>
+            <span class="accent">Execução síncrona + wrapper async</span>
         </h2>
 
         <div class="code-block reveal" style="margin-bottom: var(--content-gap);">
-    <pre><code><span class="code-annot">@CircuitBreaker</span><span class="code-plain">(name = </span><span
-            class="code-str">"paymentService"</span><span class="code-plain">, fallbackMethod = </span><span
-            class="code-str">"paymentFallback"</span><span class="code-plain">)</span>
-<span class="code-annot">@TimeLimiter</span><span class="code-plain">(name = </span><span class="code-str">"paymentService"</span><span
-                class="code-plain">, fallbackMethod = </span><span class="code-str">"paymentFallback"</span><span
-                class="code-plain">)</span>
-<span class="code-annot">@Retry</span><span class="code-plain">(name = </span><span
-                class="code-str">"paymentService"</span><span class="code-plain">)</span>
-<span class="code-kw">public</span> <span class="code-type">CompletableFuture</span><span class="code-plain">&lt;</span><span
-                class="code-type">OrderResponse</span><span class="code-plain">&gt; callPayment(</span>
-    <span class="code-type">Order</span><span class="code-plain"> order, </span><span class="code-type">CreateOrderRequest</span><span
-                class="code-plain"> request) {</span>
-    <span class="code-plain">...</span>
+    <pre><code><span class="code-comment">// camada síncrona: exceção sobe no método interceptado</span>
+<span class="code-annot">@Retry</span><span class="code-plain">(name = </span><span class="code-str">"paymentService"</span><span class="code-plain">)</span>
+<span class="code-annot">@CircuitBreaker</span><span class="code-plain">(name = </span><span class="code-str">"paymentService"</span><span class="code-plain">)</span>
+<span class="code-kw">public</span> <span class="code-type">OrderResponse</span><span class="code-plain"> executePayment(...) { ... }</span>
+
+<span class="code-comment">// camada assíncrona: controla só o tempo total</span>
+<span class="code-annot">@TimeLimiter</span><span class="code-plain">(name = </span><span class="code-str">"paymentService"</span><span class="code-plain">, fallbackMethod = </span><span class="code-str">"timeLimiterFallback"</span><span class="code-plain">)</span>
+<span class="code-kw">public</span> <span class="code-type">CompletableFuture</span><span class="code-plain">&lt;</span><span class="code-type">OrderResponse</span><span class="code-plain">&gt; callPayment(...) {</span>
+    <span class="code-kw">return</span> <span class="code-type">CompletableFuture</span><span class="code-plain">.supplyAsync(() -&gt; executePayment(...));</span>
 <span class="code-plain">}</span></code></pre>
         </div>
 
@@ -1655,8 +1651,8 @@
         </div>
 
         <div class="highlight-box reveal" style="margin-top: var(--content-gap);">
-            <p>Mas implementar não é suficiente…<br>
-                <span class="accent">Como sabemos que funciona?</span></p>
+            <p>O ponto-chave é a fronteira:<br>
+                <span class="accent">Retry no método síncrono, TimeLimiter no wrapper async.</span></p>
         </div>
     </div>
     <span class="slide-num">11 / 22</span>
@@ -1768,7 +1764,7 @@
 <!-- ===========================================================
      SLIDE 16 · DEMO — COM RESILIENCE4J
      =========================================================== -->
-<!-- SPEAKER NOTE: "Com mode=DELAY: TimeLimiter dispara em 2s, fallback salva o pedido como PENDING+UNAVAILABLE. Com mode=ERROR: Retry tenta 3x (500ms entre tentativas), esgota, CB acumula falhas. Com mode=FLAKY: Retry recupera na 2ª chamada. Modo=NORMAL novamente: CB entra em HALF-OPEN, deixa 2 chamadas de teste passar, e fecha." -->
+<!-- SPEAKER NOTE: "Com mode=DELAY: o TimeLimiter da camada externa dispara em 2s, e o fallback salva o pedido como PENDING+UNAVAILABLE. Com mode=ERROR: executePayment falha de forma síncrona, Retry tenta 3x com 500ms, e o CircuitBreaker contabiliza corretamente. Com mode=FLAKY: a 1ª chamada falha, Retry executa de novo, a 2ª responde 200, e o pedido termina CONFIRMED." -->
 <section class="slide" style="background: var(--bg-primary);">
     <div class="accent-bar"></div>
     <div class="slide-content">
@@ -1778,13 +1774,13 @@
         <div class="code-block reveal" style="margin-bottom: var(--content-gap);">
 <pre><code><span class="code-comment">// DELAY (5s) → TimeLimiter cancela em 2s</span>
 <span class="code-plain">order.status = PENDING</span>
-<span class="code-plain">paymentStatus = TIMEOUT</span>
+<span class="code-plain">paymentStatus = UNAVAILABLE</span>
 
 <span class="code-comment">// ERROR → Retry 3x (500ms) → CB: 50% falha → OPEN</span>
 <span class="code-plain">order.status = PENDING</span>
 <span class="code-plain">paymentStatus = UNAVAILABLE</span>
 
-<span class="code-comment">// FLAKY → 1ª falha → Retry → 2ª ok → recuperado</span>
+<span class="code-comment">// FLAKY → executePayment falha → Retry reinvoca → 2ª ok</span>
 <span class="code-plain">order.status = CONFIRMED</span>
 <span class="code-plain">paymentStatus = APPROVED</span></code></pre>
         </div>
@@ -1796,7 +1792,7 @@
         </div>
 
         <div class="highlight-box reveal" style="margin-top: var(--element-gap);">
-            <p>Fallback persiste o pedido como PENDING — <span class="accent">sem perda de dados.</span></p>
+            <p>Agora o retry repete a <span class="accent">execução inteira do pagamento</span>, não só o future.</p>
         </div>
     </div>
     <span class="slide-num">16 / 22</span>
@@ -1827,7 +1823,7 @@
             <div class="card" style="border-color: rgba(160,100,200,0.3);">
                 <div class="card-icon" style="color: #b07cd4;">scenario 3</div>
                 <div class="card-name">Flaky → Retry Recovery</div>
-                <div class="card-desc">1ª call 500, 2ª call 200 → CONFIRMED</div>
+                <div class="card-desc">1ª call 500, retry reinvoca, 2ª call 200 → CONFIRMED</div>
             </div>
             <div class="card" style="border-color: rgba(200,80,60,0.3);">
                 <div class="card-icon" style="color: #d47070;">scenario 4</div>
