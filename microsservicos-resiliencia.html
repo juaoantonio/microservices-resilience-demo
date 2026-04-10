@@ -1579,6 +1579,46 @@
 </section>
 
 <!-- ===========================================================
+     SLIDE 14 · ARQUITETURA DA DEMO
+     =========================================================== -->
+<!-- SPEAKER NOTE: "O projeto tem dois serviços Spring Boot. order-service recebe o pedido, persiste no PostgreSQL e chama payment-service. O payment-service tem um endpoint admin que muda seu comportamento em tempo real — isso é nossa alavanca de caos." -->
+<section class="slide"
+         style="background: radial-gradient(ellipse at 20% 20%, rgba(101,77,36,0.28) 0%, #150e04 55%), #150e04;">
+    <div class="accent-bar"></div>
+    <div class="slide-content">
+        <p class="section-label reveal">demonstração · arquitetura real</p>
+        <h2 class="reveal" style="margin-bottom: var(--content-gap);">O projeto</h2>
+
+        <div class="flow-row reveal" style="justify-content: center; margin-bottom: var(--content-gap);">
+            <div class="card" style="text-align: center; min-width: clamp(6rem, 13vw, 10rem);">
+                <div class="card-icon">:8080</div>
+                <div class="card-name">order-service</div>
+                <div class="card-desc">POST /orders</div>
+            </div>
+            <span class="flow-arrow" style="font-size: clamp(1.2rem, 2.5vw, 1.8rem);">→</span>
+            <div class="card"
+                 style="text-align: center; min-width: clamp(6rem, 13vw, 10rem); border-color: var(--border-warm);">
+                <div class="card-icon">:8081</div>
+                <div class="card-name">payment-service</div>
+                <div class="card-desc">POST /payments</div>
+            </div>
+            <span class="flow-arrow" style="font-size: clamp(1.2rem, 2.5vw, 1.8rem);">↓</span>
+            <div class="card" style="text-align: center; min-width: clamp(6rem, 13vw, 10rem);">
+                <div class="card-icon">:5432</div>
+                <div class="card-name">PostgreSQL</div>
+                <div class="card-desc">orders DB</div>
+            </div>
+        </div>
+
+        <div class="highlight-box reveal">
+            <p><span class="inline-mono code-annot" style="font-size: 0.9em; color: var(--sunlit-clay);">POST /admin/mode {"mode":"DELAY"}</span><br>
+                <span class="accent">Injeção de caos sem recompilar nada.</span></p>
+        </div>
+    </div>
+    <span class="slide-num">14 / 22</span>
+</section>
+
+<!-- ===========================================================
      SLIDE 11 · RESILIENCE4J
      =========================================================== -->
 <!-- SPEAKER NOTE: "No projeto, temos o ResilientPaymentCallService — uma classe dedicada exclusivamente a ser proxy AOP das anotações. A ordem das anotações importa: CircuitBreaker > TimeLimiter > Retry." -->
@@ -1689,46 +1729,6 @@
 </section>
 
 <!-- ===========================================================
-     SLIDE 14 · ARQUITETURA DA DEMO
-     =========================================================== -->
-<!-- SPEAKER NOTE: "O projeto tem dois serviços Spring Boot. order-service recebe o pedido, persiste no PostgreSQL e chama payment-service. O payment-service tem um endpoint admin que muda seu comportamento em tempo real — isso é nossa alavanca de caos." -->
-<section class="slide"
-         style="background: radial-gradient(ellipse at 20% 20%, rgba(101,77,36,0.28) 0%, #150e04 55%), #150e04;">
-    <div class="accent-bar"></div>
-    <div class="slide-content">
-        <p class="section-label reveal">demonstração · arquitetura real</p>
-        <h2 class="reveal" style="margin-bottom: var(--content-gap);">O projeto</h2>
-
-        <div class="flow-row reveal" style="justify-content: center; margin-bottom: var(--content-gap);">
-            <div class="card" style="text-align: center; min-width: clamp(6rem, 13vw, 10rem);">
-                <div class="card-icon">:8080</div>
-                <div class="card-name">order-service</div>
-                <div class="card-desc">POST /orders</div>
-            </div>
-            <span class="flow-arrow" style="font-size: clamp(1.2rem, 2.5vw, 1.8rem);">→</span>
-            <div class="card"
-                 style="text-align: center; min-width: clamp(6rem, 13vw, 10rem); border-color: var(--border-warm);">
-                <div class="card-icon">:8081</div>
-                <div class="card-name">payment-service</div>
-                <div class="card-desc">POST /payments</div>
-            </div>
-            <span class="flow-arrow" style="font-size: clamp(1.2rem, 2.5vw, 1.8rem);">↓</span>
-            <div class="card" style="text-align: center; min-width: clamp(6rem, 13vw, 10rem);">
-                <div class="card-icon">:5432</div>
-                <div class="card-name">PostgreSQL</div>
-                <div class="card-desc">orders DB</div>
-            </div>
-        </div>
-
-        <div class="highlight-box reveal">
-            <p><span class="inline-mono code-annot" style="font-size: 0.9em; color: var(--sunlit-clay);">POST /admin/mode {"mode":"DELAY"}</span><br>
-                <span class="accent">Injeção de caos sem recompilar nada.</span></p>
-        </div>
-    </div>
-    <span class="slide-num">14 / 22</span>
-</section>
-
-<!-- ===========================================================
      SLIDE 15 · DEMO — INJETANDO CAOS
      =========================================================== -->
 <!-- SPEAKER NOTE: "payment-service tem 4 modos que controlamos em runtime via POST /admin/mode. NORMAL funciona. DELAY dorme 5 segundos. ERROR sempre lança exceção. FLAKY alterna: chamadas ímpares falham, pares passam. É assim que simulamos o mundo real sem mocks." -->
@@ -1810,7 +1810,7 @@
          style="background: radial-gradient(ellipse at 75% 75%, rgba(101,77,36,0.3) 0%, #150e04 55%), #150e04;">
     <div class="accent-bar"></div>
     <div class="slide-content">
-        <p class="section-label reveal">demo · orderendtoendtest</p>
+        <p class="section-label reveal">demo · </p><p class="reveal section-label" style="text-transform: none">OrderEndtoEndTest</p>
         <h2 class="reveal" style="margin-bottom: var(--content-gap);">4 cenários automatizados</h2>
 
         <div class="grid-2x2 reveal" style="margin-bottom: var(--content-gap);">
