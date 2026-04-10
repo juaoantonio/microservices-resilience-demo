@@ -46,8 +46,8 @@
             --title-size: clamp(2rem, 5.5vw, 5rem);
             --h2-size: clamp(1.65rem, 3.2vw, 2.6rem);
             --h3-size: clamp(1.25rem, 2.2vw, 1.6rem);
-            --body-size: clamp(1.05rem, 1.5vw, 1.15rem);
-            --small-size: clamp(0.85rem, 1.05vw, 0.95rem);
+            --body-size: 1.25rem;
+            --small-size: 1rem;
             --code-size: clamp(0.92rem, 1.3vw, 1.05rem);
 
             /* Spacing */
@@ -412,8 +412,7 @@
 
         .card-icon {
             font-family: var(--font-mono);
-            /* Projector: raised minimum from 0.55rem. sunlit-clay on bg → 9.6:1 ✓ */
-            font-size: clamp(0.75rem, 0.9vw, 0.82rem);
+            font-size: 1rem;
             color: var(--sunlit-clay);
             text-transform: uppercase;
             letter-spacing: 0.12em;
@@ -422,8 +421,7 @@
 
         .card-name {
             font-family: var(--font-display);
-            /* Projector: raised minimum from 0.85rem. ivory-mist on bg → 17:1 ✓ */
-            font-size: clamp(1rem, 1.8vw, 1.25rem);
+            font-size: 1.4rem;
             font-weight: 700;
             color: var(--ivory-mist);
             line-height: 1.25;
@@ -431,9 +429,7 @@
         }
 
         .card-desc {
-            /* WCAG fix: removed opacity:0.75 (created reliance on compositing).
-               #c4b99a on #150e04 → ~9.4:1 (AAA). Projector: min raised to 0.85rem. */
-            font-size: clamp(0.85rem, 1.15vw, 0.95rem);
+            font-size: 1.05rem;
             color: #c4b99a;
             line-height: 1.5;
         }
@@ -511,15 +507,14 @@
             border: 1px solid var(--border-muted);
             border-radius: 3px;
             padding: 0.3em 0.75em;
-            /* Projector: raised minimum from 0.68rem. ivory-mist on bg → 17:1 ✓ */
-            font-size: clamp(0.88rem, 1.2vw, 1rem);
+            font-size: 1.1rem;
             color: var(--ivory-mist);
             white-space: nowrap;
         }
 
         .flow-arrow {
             color: var(--sunlit-clay);
-            font-size: clamp(0.9rem, 1.4vw, 1.1rem);
+            font-size: 1.2rem;
             /* WCAG fix: opacity removed; sunlit-clay at full opacity → 9.6:1 ✓ */
         }
 
@@ -671,7 +666,7 @@
 
         .tech-badge {
             font-family: var(--font-mono);
-            font-size: clamp(0.55rem, 0.9vw, 0.75rem);
+            font-size: 0.9rem;
             color: var(--bg-primary);
             background: var(--sunlit-clay);
             padding: 0.28em 0.8em;
@@ -751,6 +746,51 @@
            ===================================================== */
         .conclusion-slide {
             background: radial-gradient(ellipse at center bottom, rgba(101, 77, 36, 0.5) 0%, #150e04 60%);
+        }
+
+        /* =====================================================
+           TYPOGRAPHY HELPERS — font-family classes
+           ===================================================== */
+
+        /* Large quote paragraphs (slides 12, 22) */
+        .text-quote {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--ivory-mist);
+            line-height: 1.3;
+        }
+
+        .text-quote-accent {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--sunlit-clay);
+            line-height: 1.3;
+        }
+
+        /* Small intro line before pivot question (slide 09) */
+        .text-prelude {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.1rem;
+            color: var(--pearl-beige);
+        }
+
+        /* Struck-through "Se vai falhar?" line (slide 09) */
+        .text-pivot-strike {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--pearl-beige);
+            text-decoration: line-through;
+            text-decoration-color: rgba(233, 175, 107, 0.5);
+        }
+
+        /* Inline mono fragments outside code blocks (slides 14, 15) */
+        .inline-mono {
+            font-family: 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+            font-size: 0.88em;
+            color: var(--pearl-beige);
         }
 
     </style>
@@ -1026,10 +1066,10 @@
         <p class="section-label reveal" style="text-align:center;">pivot</p>
 
         <div class="reveal" style="margin-bottom: var(--content-gap);">
-            <p style="font-size: clamp(0.9rem, 2vw, 1.4rem); color: var(--pearl-beige); opacity: 0.55; font-family: var(--font-display);">
+            <p class="text-prelude" style="opacity: 0.55;">
                 A pergunta não é mais…
             </p>
-            <p style="font-family: var(--font-display); font-weight: 700; font-size: clamp(1rem, 2.2vw, 1.7rem); color: var(--pearl-beige); opacity: 0.4; text-decoration: line-through; text-decoration-color: rgba(233,175,107,0.5);">
+            <p class="text-pivot-strike" style="opacity: 0.4;">
                 "Se vai falhar?"
             </p>
         </div>
@@ -1145,10 +1185,10 @@
         </ul>
 
         <div class="reveal">
-            <p style="font-family: var(--font-display); font-size: clamp(1.1rem, 2.6vw, 2rem); font-weight: 700; color: var(--ivory-mist); line-height: 1.3;">
+            <p class="text-quote">
                 "Se você nunca testou uma falha…
             </p>
-            <p style="font-family: var(--font-display); font-size: clamp(1.1rem, 2.6vw, 2rem); font-weight: 700; color: var(--sunlit-clay); line-height: 1.3;">
+            <p class="text-quote-accent">
                 você não sabe como seu sistema reage."
             </p>
         </div>
@@ -1227,7 +1267,7 @@
         </div>
 
         <div class="highlight-box reveal">
-            <p><span class="code-annot" style="font-family: var(--font-mono); font-size: 0.9em;">POST /admin/mode {"mode":"DELAY"}</span><br>
+            <p><span class="inline-mono code-annot" style="font-size: 0.9em; color: var(--sunlit-clay);">POST /admin/mode {"mode":"DELAY"}</span><br>
                 <span class="accent">Injeção de caos sem recompilar nada.</span></p>
         </div>
     </div>
@@ -1264,7 +1304,7 @@
         </div>
 
         <div class="highlight-box reveal" style="border-left-color: #c05040; background: rgba(180,60,40,0.08);">
-            <p><span style="font-family: var(--font-mono); font-size: 0.88em; color: var(--pearl-beige);">POST /admin/mode</span>
+            <p><span class="inline-mono">POST /admin/mode</span>
                 · um endpoint que muda tudo — <span style="color: #d47070;">sem recompilar.</span></p>
         </div>
     </div>
@@ -1510,10 +1550,10 @@
         </ul>
 
         <div class="reveal" style="max-width: min(90vw, 680px);">
-            <p style="font-family: var(--font-display); font-size: clamp(1rem, 2.6vw, 2rem); font-weight: 700; color: var(--ivory-mist); line-height: 1.3; margin-bottom: 0.3em;">
+            <p class="text-quote" style="margin-bottom: 0.3em;">
                 "Um sistema não é bom quando funciona…
             </p>
-            <p style="font-family: var(--font-display); font-size: clamp(1rem, 2.6vw, 2rem); font-weight: 700; color: var(--sunlit-clay); line-height: 1.3;">
+            <p class="text-quote-accent">
                 é bom quando continua funcionando mesmo quando algo dá errado."
             </p>
         </div>
