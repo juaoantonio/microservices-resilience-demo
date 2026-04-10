@@ -1,10 +1,10 @@
 package com.demo.order;
 
 import com.demo.order.domain.Order;
-import com.demo.order.domain.OrderRepository;
 import com.demo.order.domain.OrderStatus;
 import com.demo.order.dto.OrderResponse;
 import com.demo.order.service.PaymentFallbackHandler;
+import com.demo.order.service.ResilientDatabaseService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,7 +22,7 @@ import static org.mockito.Mockito.when;
 class PaymentFallbackHandlerTest {
 
     @Mock
-    OrderRepository orderRepository;
+    ResilientDatabaseService resilientDatabaseService;
 
     @InjectMocks
     PaymentFallbackHandler fallbackHandler;
@@ -38,7 +38,7 @@ class PaymentFallbackHandlerTest {
                 .status(OrderStatus.CREATED)
                 .build();
 
-        when(orderRepository.save(any())).thenReturn(order);
+        when(resilientDatabaseService.save(any())).thenReturn(order);
 
         OrderResponse response = fallbackHandler.handleFallback(order, new RuntimeException("timeout"));
 
@@ -58,7 +58,7 @@ class PaymentFallbackHandlerTest {
                 .status(OrderStatus.CREATED)
                 .build();
 
-        when(orderRepository.save(any())).thenReturn(order);
+        when(resilientDatabaseService.save(any())).thenReturn(order);
 
         OrderResponse response = fallbackHandler.handleFallback(order, new RuntimeException("circuit open"));
 

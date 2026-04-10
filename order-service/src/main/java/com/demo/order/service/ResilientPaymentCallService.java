@@ -2,7 +2,6 @@ package com.demo.order.service;
 
 import com.demo.order.client.PaymentClient;
 import com.demo.order.domain.Order;
-import com.demo.order.domain.OrderRepository;
 import com.demo.order.domain.OrderStatus;
 import com.demo.order.domain.PaymentStatus;
 import com.demo.order.dto.CreateOrderRequest;
@@ -24,7 +23,7 @@ import java.util.concurrent.CompletableFuture;
 public class ResilientPaymentCallService {
 
     private final PaymentClient paymentClient;
-    private final OrderRepository orderRepository;
+    private final ResilientDatabaseService resilientDatabaseService;
     private final PaymentFallbackHandler fallbackHandler;
 
     @CircuitBreaker(name = "paymentService", fallbackMethod = "paymentFallback")
@@ -45,7 +44,7 @@ public class ResilientPaymentCallService {
             order.setPaymentStatus(PaymentStatus.APPROVED);
             order.setPaymentId(paymentResponse.getPaymentId());
             order.setMessage("Payment approved");
-            orderRepository.save(order);
+            resilientDatabaseService.save(order);
 
             log.info("Order confirmed orderId={} paymentId={}", order.getId(), paymentResponse.getPaymentId());
 

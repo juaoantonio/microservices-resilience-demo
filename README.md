@@ -138,10 +138,12 @@ curl -X POST http://localhost:8081/admin/mode \
 
 Cobertura de testes:
 - **Unitários** — `PaymentSimulationServiceTest`, `PaymentFallbackHandlerTest`
-- **Integração** — `PaymentControllerIntegrationTest`, `OrderPersistenceIntegrationTest` (PostgreSQL via Testcontainers)
+- **Integração** — `PaymentControllerIntegrationTest`, `OrderPersistenceIntegrationTest` (PostgreSQL via Testcontainers), `DatabaseResilienceTest` (circuit breaker do banco)
 - **End-to-end** — `OrderEndToEndTest` (WireMock + Testcontainers, 4 cenários)
 
 ## Configuração do Resilience4j (order-service)
+
+### Chamadas ao payment-service
 
 | Padrão          | Configuração                                                  |
 |-----------------|---------------------------------------------------------------|
@@ -150,11 +152,19 @@ Cobertura de testes:
 | TimeLimiter     | Timeout de 2s por chamada ao payment-service                  |
 | Fallback        | Pedido salvo como PENDING com status de pagamento UNAVAILABLE |
 
+### Chamadas ao banco de dados
+
+| Padrão          | Configuração                                                                       |
+|-----------------|------------------------------------------------------------------------------------|
+| Circuit Breaker | Abre com ≥ 50% de falhas em 5 chamadas (mínimo de 3 chamadas)                     |
+| Retry           | Máximo de 3 tentativas com 200ms de espera — somente `TransientDataAccessException` |
+| Fallback        | Lança `DatabaseUnavailableException` → HTTP 503                                    |
+
 ## Observabilidade
 
-| Endpoint                             | Descrição                                    |
-|--------------------------------------|----------------------------------------------|
-| `GET /actuator/health`               | Saúde do serviço + estado do circuit breaker |
-| `GET /actuator/metrics`              | Todas as métricas Micrometer                 |
-| `GET /actuator/circuitbreakers`      | Estados e estatísticas do circuit breaker    |
-| `GET /actuator/circuitbreakerevents` | Eventos recentes do circuit breaker          |
+| Endpoint                             | Descrição                                                        |
+|--------------------------------------|------------------------------------------------------------------|
+| `GET /actuator/health`               | Saúde do serviço + estado dos circuit breakers                   |
+| `GET /actuator/metrics`              | Todas as métricas Micrometer                                     |
+| `GET /actuator/circuitbreakers`      | Estados e estatísticas de todos os circuit breakers (payment + database) |
+| `GET /actuator/circuitbreakerevents` | Eventos recentes dos circuit breakers                            |

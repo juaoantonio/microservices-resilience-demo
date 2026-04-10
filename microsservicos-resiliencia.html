@@ -791,7 +791,7 @@
         </div>
     </div>
 
-    <span class="slide-num">01 / 21</span>
+    <span class="slide-num">01 / 22</span>
 </section>
 
 <!-- ===========================================================
@@ -813,7 +813,7 @@
             <span class="hi">funcionar.</span>
         </div>
     </div>
-    <span class="slide-num">02 / 21</span>
+    <span class="slide-num">02 / 22</span>
 </section>
 
 <!-- ===========================================================
@@ -845,7 +845,7 @@
             <p>A maioria de nós testa sistemas… mas não testa <span class="accent">falhas.</span></p>
         </div>
     </div>
-    <span class="slide-num">03 / 21</span>
+    <span class="slide-num">03 / 22</span>
 </section>
 
 <!-- ===========================================================
@@ -883,7 +883,7 @@
                     class="accent">mundo imperfeito.</span></p>
         </div>
     </div>
-    <span class="slide-num">04 / 21</span>
+    <span class="slide-num">04 / 22</span>
 </section>
 
 <!-- ===========================================================
@@ -914,7 +914,7 @@
             <span class="flow-pill">TDD: By Example</span>
         </div>
     </div>
-    <span class="slide-num">05 / 21</span>
+    <span class="slide-num">05 / 22</span>
 </section>
 
 <!-- ===========================================================
@@ -944,7 +944,7 @@
             <p>Sem testes, todo sistema caminha inevitavelmente para virar <span class="accent">legado.</span></p>
         </div>
     </div>
-    <span class="slide-num">06 / 21</span>
+    <span class="slide-num">06 / 22</span>
 </section>
 
 <!-- ===========================================================
@@ -982,7 +982,7 @@
                     class="accent">dá errado.</span></p>
         </div>
     </div>
-    <span class="slide-num">07 / 21</span>
+    <span class="slide-num">07 / 22</span>
 </section>
 
 <!-- ===========================================================
@@ -1014,7 +1014,7 @@
             <li>Retry descontrolado</li>
         </ul>
     </div>
-    <span class="slide-num">08 / 21</span>
+    <span class="slide-num">08 / 22</span>
 </section>
 
 <!-- ===========================================================
@@ -1040,7 +1040,7 @@
             quando falha?
         </div>
     </div>
-    <span class="slide-num">09 / 21</span>
+    <span class="slide-num">09 / 22</span>
 </section>
 
 <!-- ===========================================================
@@ -1081,7 +1081,7 @@
             <p>Não evitam falhas… <span class="accent">evitam que se espalhem.</span></p>
         </div>
     </div>
-    <span class="slide-num">10 / 21</span>
+    <span class="slide-num">10 / 22</span>
 </section>
 
 <!-- ===========================================================
@@ -1125,7 +1125,7 @@
                 <span class="accent">Como sabemos que funciona?</span></p>
         </div>
     </div>
-    <span class="slide-num">11 / 21</span>
+    <span class="slide-num">11 / 22</span>
 </section>
 
 <!-- ===========================================================
@@ -1153,7 +1153,7 @@
             </p>
         </div>
     </div>
-    <span class="slide-num">12 / 21</span>
+    <span class="slide-num">12 / 22</span>
 </section>
 
 <!-- ===========================================================
@@ -1191,7 +1191,7 @@
             <p>Agora conseguimos trazer o caos da produção… <span class="accent">para dentro do teste.</span></p>
         </div>
     </div>
-    <span class="slide-num">13 / 21</span>
+    <span class="slide-num">13 / 22</span>
 </section>
 
 <!-- ===========================================================
@@ -1231,7 +1231,7 @@
                 <span class="accent">Injeção de caos sem recompilar nada.</span></p>
         </div>
     </div>
-    <span class="slide-num">14 / 21</span>
+    <span class="slide-num">14 / 22</span>
 </section>
 
 <!-- ===========================================================
@@ -1268,7 +1268,7 @@
                 · um endpoint que muda tudo — <span style="color: #d47070;">sem recompilar.</span></p>
         </div>
     </div>
-    <span class="slide-num">15 / 21</span>
+    <span class="slide-num">15 / 22</span>
 </section>
 
 <!-- ===========================================================
@@ -1305,7 +1305,7 @@
             <p>Fallback persiste o pedido como PENDING — <span class="accent">sem perda de dados.</span></p>
         </div>
     </div>
-    <span class="slide-num">16 / 21</span>
+    <span class="slide-num">16 / 22</span>
 </section>
 
 <!-- ===========================================================
@@ -1346,11 +1346,54 @@
             <p>Agora estamos testando <span class="accent">comportamento real</span> — não só código.</p>
         </div>
     </div>
-    <span class="slide-num">17 / 21</span>
+    <span class="slide-num">17 / 22</span>
 </section>
 
 <!-- ===========================================================
-     SLIDE 18 · COMPARAÇÃO
+     SLIDE 18 · RESILIÊNCIA DO BANCO DE DADOS
+     =========================================================== -->
+<!-- SPEAKER NOTE: "Mas o payment-service não é a única dependência. O banco de dados também pode ficar lento, ter deadlocks ou pool esgotado. A solução: o mesmo padrão, aplicado ao repositório." -->
+<section class="slide"
+         style="background: radial-gradient(ellipse at 15% 85%, rgba(101,77,36,0.4) 0%, #150e04 55%), #150e04;">
+    <div class="accent-bar"></div>
+    <div class="slide-content">
+        <p class="section-label reveal">resiliência · banco de dados</p>
+        <h2 class="reveal" style="margin-bottom: var(--content-gap);">
+            <span class="accent">ResilientDatabaseService</span>
+        </h2>
+
+        <div class="code-block reveal" style="margin-bottom: var(--content-gap);">
+<pre><code><span class="code-annot">@CircuitBreaker</span><span class="code-plain">(name = </span><span class="code-str">"database"</span><span class="code-plain">, fallbackMethod = </span><span class="code-str">"saveFallback"</span><span class="code-plain">)</span>
+<span class="code-annot">@Retry</span><span class="code-plain">(name = </span><span class="code-str">"database"</span><span class="code-plain">)</span>
+<span class="code-kw">public</span> <span class="code-type">Order</span> <span class="code-plain">save(</span><span class="code-type">Order</span><span class="code-plain"> order) {</span>
+    <span class="code-kw">return</span> <span class="code-plain">orderRepository.save(order);</span>
+<span class="code-plain">}</span>
+
+<span class="code-kw">public</span> <span class="code-type">Order</span> <span class="code-plain">saveFallback(</span><span class="code-type">Order</span><span class="code-plain"> order, </span><span class="code-type">Throwable</span><span class="code-plain"> ex) {</span>
+    <span class="code-kw">throw new</span> <span class="code-type">DatabaseUnavailableException</span><span class="code-plain">(</span><span class="code-str">"Database unavailable"</span><span class="code-plain">, ex);</span>
+<span class="code-plain">}</span></code></pre>
+        </div>
+
+        <div class="grid-2 reveal" style="margin-bottom: var(--element-gap);">
+            <div class="card" style="border-color: rgba(200,160,60,0.3);">
+                <div class="card-icon" style="color: #d4aa60;">sem @TimeLimiter</div>
+                <div class="card-desc">Não usa CompletableFuture — incompatível com @Transactional síncrono</div>
+            </div>
+            <div class="card" style="border-color: rgba(160,100,200,0.3);">
+                <div class="card-icon" style="color: #b07cd4;">retry seletivo</div>
+                <div class="card-desc">Só TransientDataAccessException — deadlocks, pool esgotado, timeout de query</div>
+            </div>
+        </div>
+
+        <div class="highlight-box reveal">
+            <p>Mesmo padrão, nova camada — <span class="accent">banco também precisa de proteção.</span></p>
+        </div>
+    </div>
+    <span class="slide-num">18 / 22</span>
+</section>
+
+<!-- ===========================================================
+     SLIDE 19 · COMPARAÇÃO
      =========================================================== -->
 <!-- SPEAKER NOTE: "A diferença é clara. Não é sobre evitar falhas… é sobre sobreviver a elas." -->
 <section class="slide" style="background: var(--bg-primary);">
@@ -1382,11 +1425,11 @@
             <p>Não é sobre <em>evitar</em> falhas… é sobre <span class="accent">sobreviver a elas.</span></p>
         </div>
     </div>
-    <span class="slide-num">18 / 21</span>
+    <span class="slide-num">19 / 22</span>
 </section>
 
 <!-- ===========================================================
-     SLIDE 19 · BOAS PRÁTICAS
+     SLIDE 20 · BOAS PRÁTICAS
      =========================================================== -->
 <!-- SPEAKER NOTE: "Algumas boas práticas importantes. Highlight: fallback e degradação funcional são frequentemente esquecidos." -->
 <section class="slide"
@@ -1411,11 +1454,11 @@
             </ul>
         </div>
     </div>
-    <span class="slide-num">19 / 21</span>
+    <span class="slide-num">20 / 22</span>
 </section>
 
 <!-- ===========================================================
-     SLIDE 20 · INDO ALÉM
+     SLIDE 21 · INDO ALÉM
      =========================================================== -->
 <!-- SPEAKER NOTE: "Aqui você sai de testes e entra em engenharia de confiabilidade." -->
 <section class="slide" style="background: var(--bg-primary);">
@@ -1447,11 +1490,11 @@
             </p>
         </div>
     </div>
-    <span class="slide-num">20 / 21</span>
+    <span class="slide-num">21 / 22</span>
 </section>
 
 <!-- ===========================================================
-     SLIDE 21 · CONCLUSÃO
+     SLIDE 22 · CONCLUSÃO
      =========================================================== -->
 <!-- SPEAKER NOTE: "Obrigado! Alguém já teve problema em produção que teria sido evitado testando falhas?" -->
 <section class="slide conclusion-slide">
@@ -1479,7 +1522,7 @@
             <span class="tech-badge">Obrigado!</span>
         </div>
     </div>
-    <span class="slide-num">21 / 21</span>
+    <span class="slide-num">22 / 22</span>
 </section>
 
 <!-- ===========================================================

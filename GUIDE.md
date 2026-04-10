@@ -10,6 +10,7 @@
 6. [Fluxos da aplicação](#6-fluxos-da-aplicação)
 7. [Camada de persistência](#7-camada-de-persistência)
 8. [Testes](#8-testes)
+9. [Resiliência do banco de dados](#9-resiliência-do-banco-de-dados)
 
 ---
 
@@ -44,6 +45,7 @@ microservices-resilience/
 │       ├── service/
 │       │   ├── OrderApplicationService.java
 │       │   ├── ResilientPaymentCallService.java
+│       │   ├── ResilientDatabaseService.java
 │       │   ├── PaymentFallbackHandler.java
 │       │   └── OrderMapper.java
 │       ├── client/
@@ -60,6 +62,7 @@ microservices-resilience/
 │       │   └── PaymentResponse.java
 │       ├── exception/
 │       │   ├── GlobalExceptionHandler.java
+│       │   ├── DatabaseUnavailableException.java
 │       │   ├── PaymentIntegrationException.java
 │       │   ├── PaymentTimeoutException.java
 │       │   └── PaymentUnavailableException.java
@@ -158,6 +161,13 @@ O método `paymentFallback` é acionado automaticamente pelo Resilience4j quando
 #### `PaymentFallbackHandler`
 Encapsula a lógica de fallback: atualiza o pedido para `PENDING` / `UNAVAILABLE`, persiste e retorna a resposta degradada. Separado do serviço para facilitar testes unitários.
 
+#### `ResilientDatabaseService`
+Aplica Circuit Breaker e Retry a todas as operações de banco de dados. Envolve o `OrderRepository` expondo dois métodos — `save` e `findById` — decorados com `@CircuitBreaker` e `@Retry` (instância `database`). Quando o circuito abre ou os retries se esgotam, o fallback lança `DatabaseUnavailableException`, que o `GlobalExceptionHandler` mapeia para HTTP 503.
+
+Não usa `@TimeLimiter` porque esse padrão exige `CompletableFuture`, que é incompatível com chamadas síncronas dentro de uma transação. Timeouts de conexão e query são configurados no nível do pool JDBC (HikariCP).
+
+O bean não é `@Transactional`: a fronteira transacional permanece no `OrderApplicationService`, que é o dono da transação. Se uma operação falhar dentro de um rollback já em andamento, a `DatabaseUnavailableException` propaga normalmente.
+
 #### `PaymentClient`
 Realiza a chamada HTTP ao `payment-service` usando o `RestClient` do Spring 6. Trata dois tipos de falha:
 
@@ -170,12 +180,13 @@ Cria o bean `RestClient` com a URL base do `payment-service` lida da propriedade
 #### `GlobalExceptionHandler`
 Traduz exceções de domínio em respostas HTTP legíveis:
 
-| Exceção                       | HTTP                      |
-|-------------------------------|---------------------------|
-| `PaymentTimeoutException`     | 504 Gateway Timeout       |
-| `PaymentUnavailableException` | 503 Service Unavailable   |
-| `PaymentIntegrationException` | 502 Bad Gateway           |
-| `RuntimeException`            | 500 Internal Server Error |
+| Exceção                        | HTTP                      |
+|--------------------------------|---------------------------|
+| `PaymentTimeoutException`      | 504 Gateway Timeout       |
+| `PaymentUnavailableException`  | 503 Service Unavailable   |
+| `DatabaseUnavailableException` | 503 Service Unavailable   |
+| `PaymentIntegrationException`  | 502 Bad Gateway           |
+| `RuntimeException`             | 500 Internal Server Error |
 
 #### Enumerações de status
 
@@ -244,7 +255,7 @@ Limita o tempo de espera da chamada ao `payment-service`. Após o timeout, cance
 
 Acionado por qualquer um dos três mecanismos acima. Persiste o pedido como `PENDING` com `paymentStatus = UNAVAILABLE` e retorna uma resposta degradada mas coerente ao cliente. Isso evita perda do pedido: o sistema pode reprocessar pedidos `PENDING` posteriormente.
 
-### Ordem de aplicação das anotações
+### Ordem de aplicação das anotações (payment-service)
 
 ```
 Requisição
@@ -261,6 +272,25 @@ Requisição
     ▼
 PaymentClient.processPayment()
 ```
+
+### Proteção da camada de banco de dados
+
+Todas as operações de banco de dados passam pelo `ResilientDatabaseService`, que aplica os mesmos padrões (sem `@TimeLimiter`, pois as chamadas são síncronas e não retornam `CompletableFuture`).
+
+| Parâmetro                               | Valor  | Descrição                                          |
+|-----------------------------------------|--------|----------------------------------------------------|
+| `slidingWindowSize`                     | 5      | Janela de chamadas avaliadas                       |
+| `minimumNumberOfCalls`                  | 3      | Mínimo para começar a avaliar                      |
+| `failureRateThreshold`                  | 50     | % de falhas para abrir o circuito                  |
+| `waitDurationInOpenState`               | 10s    | Tempo em aberto antes de tentar HALF-OPEN          |
+| `permittedNumberOfCallsInHalfOpenState` | 2      | Chamadas de teste no estado HALF-OPEN              |
+| Retry `maxAttempts`                     | 3      | Tentativas por operação                            |
+| Retry `waitDuration`                    | 200ms  | Espera entre tentativas                            |
+| Retry `retryExceptions`                 | `TransientDataAccessException` | Cobre timeouts de query, deadlocks e pool esgotado |
+
+`TransientDataAccessException` (e suas subclasses) cobre erros transitórios do JDBC que vale a pena rtentar, como `CannotGetJdbcConnectionException` (pool esgotado), `CannotAcquireLockException` (deadlock) e `QueryTimeoutException`. Erros permanentes como violações de constraint (`NonTransientDataAccessException`) não são retentados.
+
+O circuit breaker do banco é registrado no health indicator e aparece no endpoint `/actuator/circuitbreakers` junto ao `paymentService`.
 
 ---
 
@@ -371,7 +401,7 @@ O schema é criado automaticamente pelo Hibernate (`ddl-auto: update` em produç
 
 ### `OrderRepository`
 
-Interface `JpaRepository<Order, Long>` sem métodos customizados. Todo acesso ao banco passa por Spring Data JPA.
+Interface `JpaRepository<Order, Long>` sem métodos customizados. Todo acesso ao banco passa pelo `ResilientDatabaseService`, que envolve o repositório com Circuit Breaker e Retry antes de delegar ao Spring Data JPA.
 
 ---
 
@@ -390,12 +420,15 @@ Testam componentes isolados com Mockito, sem contexto Spring.
 
 Sobem o contexto Spring completo com dependências reais.
 
-| Classe                             | Infraestrutura              | O que testa                                 |
-|------------------------------------|-----------------------------|---------------------------------------------|
-| `PaymentControllerIntegrationTest` | Nenhuma (MockMvc)           | Endpoints do payment-service para cada modo |
-| `OrderPersistenceIntegrationTest`  | PostgreSQL (Testcontainers) | Persistência correta da entidade `Order`    |
+| Classe                             | Infraestrutura              | O que testa                                                  |
+|------------------------------------|-----------------------------|--------------------------------------------------------------|
+| `PaymentControllerIntegrationTest` | Nenhuma (MockMvc)           | Endpoints do payment-service para cada modo                  |
+| `OrderPersistenceIntegrationTest`  | PostgreSQL (Testcontainers) | Persistência correta da entidade `Order`                     |
+| `DatabaseResilienceTest`           | PostgreSQL (Testcontainers) | Circuit breaker do banco abre após falhas `TransientDataAccessException` |
 
 A URL do banco é injetada dinamicamente via `@DynamicPropertySource`, que sobrescreve as propriedades do `application.yml` antes da inicialização do contexto Spring.
+
+`DatabaseResilienceTest` usa `@MockBean OrderRepository` para injetar falhas programaticamente. Os thresholds do Resilience4j são sobrescritos para valores agressivos (`minimumNumberOfCalls=3`, `maxAttempts=1`) para que o circuit breaker abra rapidamente. A asserção principal é `verify(orderRepository, times(3)).save(any())` — prova que a 4ª chamada foi bloqueada pelo proxy AOP sem chegar ao repositório.
 
 ### End-to-end
 
@@ -408,3 +441,40 @@ Sobem a aplicação completa em porta aleatória com banco real e dependência e
 O WireMock substitui o `payment-service` real, permitindo controlar com precisão latência, erros e comportamentos intermitentes. A URL base do payment-service é sobrescrita via `@DynamicPropertySource` para apontar à porta dinâmica do WireMock.
 
 Os parâmetros do Resilience4j também são sobrescritos para valores mais agressivos (ex.: timeout de 1s, retry de 2 tentativas), tornando os cenários rápidos e determinísticos nos testes.
+
+---
+
+## 9. Resiliência do banco de dados
+
+### Motivação
+
+Embora o banco seja uma dependência interna, ele também pode apresentar latência, timeouts de query, esgotamento de pool de conexões ou deadlocks transitórios. Sem proteção, uma falha momentânea no PostgreSQL pode se propagar para todos os endpoints do `order-service`, causando indisponibilidade total.
+
+### Arquitetura da solução
+
+```
+OrderApplicationService        ResilientPaymentCallService        PaymentFallbackHandler
+        │                                   │                               │
+        ▼                                   ▼                               ▼
+ResilientDatabaseService  ←─────── Circuit Breaker + Retry ──────────────────
+        │
+        ▼
+  OrderRepository (JPA)
+        │
+        ▼
+    PostgreSQL
+```
+
+### Fallback e degradação
+
+Diferente do fallback de pagamento (que salva o pedido como `PENDING`), o fallback de banco de dados não tem valor padrão razoável para retornar. Por isso, ele lança `DatabaseUnavailableException`, que o `GlobalExceptionHandler` mapeia para HTTP 503. O cliente recebe um erro explícito — o que é mais correto do que retornar dados inconsistentes.
+
+### Exceções cobertas pelo Retry
+
+| Subclasse de `TransientDataAccessException`   | Causa                                    |
+|-----------------------------------------------|------------------------------------------|
+| `CannotGetJdbcConnectionException`            | Pool de conexões esgotado                |
+| `CannotAcquireLockException`                  | Deadlock ou timeout de lock              |
+| `QueryTimeoutException`                       | Query demorou mais que o timeout JDBC    |
+
+Erros permanentes (violações de constraint, dados inválidos) extendem `NonTransientDataAccessException` e não são cobertos — rtentar não os resolve.

@@ -1,7 +1,6 @@
 package com.demo.order.service;
 
 import com.demo.order.domain.Order;
-import com.demo.order.domain.OrderRepository;
 import com.demo.order.domain.OrderStatus;
 import com.demo.order.domain.PaymentStatus;
 import com.demo.order.dto.OrderResponse;
@@ -14,14 +13,14 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class PaymentFallbackHandler {
 
-    private final OrderRepository orderRepository;
+    private final ResilientDatabaseService resilientDatabaseService;
 
     public OrderResponse handleFallback(Order order, Throwable ex) {
         log.warn("Fallback triggered for orderId={} reason={}", order.getId(), ex.getMessage());
         order.setStatus(OrderStatus.PENDING);
         order.setPaymentStatus(PaymentStatus.UNAVAILABLE);
         order.setMessage("Payment service temporarily unavailable. Order is pending.");
-        orderRepository.save(order);
+        resilientDatabaseService.save(order);
         return OrderResponse.builder()
                 .orderId(order.getId())
                 .status(order.getStatus().name())

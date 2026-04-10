@@ -33,6 +33,13 @@ public class GlobalExceptionHandler {
                 .body(Map.of("error", "Payment integration error", "detail", ex.getMessage()));
     }
 
+    @ExceptionHandler(DatabaseUnavailableException.class)
+    public ResponseEntity<Map<String, String>> handleDatabaseUnavailable(DatabaseUnavailableException ex) {
+        log.error("Database unavailable: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(Map.of("error", "Database unavailable", "detail", ex.getMessage()));
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, String>> handleGeneric(RuntimeException ex) {
         log.error("Unexpected error: {}", ex.getMessage(), ex);

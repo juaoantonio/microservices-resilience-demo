@@ -39,6 +39,13 @@ resilience4j:
         waitDurationInOpenState: 10s
         permittedNumberOfCallsInHalfOpenState: 2
         registerHealthIndicator: true
+      database:
+        slidingWindowSize: 5
+        minimumNumberOfCalls: 3
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 2
+        registerHealthIndicator: true
   retry:
     instances:
       paymentService:
@@ -47,6 +54,11 @@ resilience4j:
         retryExceptions:
           - com.demo.order.exception.PaymentIntegrationException
           - com.demo.order.exception.PaymentUnavailableException
+      database:
+        maxAttempts: 3
+        waitDuration: 200ms
+        retryExceptions:
+          - org.springframework.dao.TransientDataAccessException
   timelimiter:
     instances:
       paymentService:

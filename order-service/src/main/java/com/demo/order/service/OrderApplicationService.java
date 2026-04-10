@@ -1,7 +1,6 @@
 package com.demo.order.service;
 
 import com.demo.order.domain.Order;
-import com.demo.order.domain.OrderRepository;
 import com.demo.order.domain.OrderStatus;
 import com.demo.order.domain.PaymentStatus;
 import com.demo.order.dto.CreateOrderRequest;
@@ -16,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class OrderApplicationService {
 
-    private final OrderRepository orderRepository;
+    private final ResilientDatabaseService resilientDatabaseService;
     private final ResilientPaymentCallService resilientPaymentCallService;
 
     @Transactional
@@ -29,7 +28,7 @@ public class OrderApplicationService {
                 .amount(request.getAmount())
                 .status(OrderStatus.CREATED)
                 .build();
-        order = orderRepository.save(order);
+        order = resilientDatabaseService.save(order);
 
         try {
             return resilientPaymentCallService.callPayment(order, request).get();
@@ -39,7 +38,7 @@ public class OrderApplicationService {
             order.setStatus(OrderStatus.FAILED);
             order.setPaymentStatus(PaymentStatus.ERROR);
             order.setMessage("Order failed: " + cause.getMessage());
-            orderRepository.save(order);
+            resilientDatabaseService.save(order);
             return OrderResponse.builder()
                     .orderId(order.getId())
                     .status(order.getStatus().name())
@@ -51,7 +50,7 @@ public class OrderApplicationService {
 
     @Transactional(readOnly = true)
     public OrderResponse getOrder(Long id) {
-        Order order = orderRepository.findById(id)
+        Order order = resilientDatabaseService.findById(id)
                 .orElseThrow(() -> new RuntimeException("Order not found: " + id));
         return OrderResponse.builder()
                 .orderId(order.getId())
