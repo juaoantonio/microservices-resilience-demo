@@ -793,6 +793,142 @@
             color: var(--pearl-beige);
         }
 
+        /* =====================================================
+           RESILIENCE PATTERN DIAGRAMS
+           ===================================================== */
+        .pattern-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1.65fr) minmax(260px, 0.95fr);
+            gap: clamp(0.8rem, 2vw, 1.4rem);
+            align-items: stretch;
+        }
+
+        .diagram-board,
+        .diagram-aside {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-muted);
+            border-radius: 6px;
+            padding: clamp(0.7rem, 1.8vw, 1.3rem);
+        }
+
+        .diagram-board {
+            display: flex;
+            flex-direction: column;
+            gap: clamp(0.65rem, 1.5vw, 1rem);
+        }
+
+        .diagram-aside {
+            display: flex;
+            flex-direction: column;
+            gap: clamp(0.6rem, 1.4vw, 0.9rem);
+        }
+
+        .diagram-caption {
+            font-family: var(--font-mono);
+            font-size: clamp(0.74rem, 0.95vw, 0.9rem);
+            color: var(--sunlit-clay);
+            text-transform: uppercase;
+            letter-spacing: 0.16em;
+        }
+
+        .diagram-track {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: stretch;
+            gap: clamp(0.35rem, 1vw, 0.7rem);
+        }
+
+        .diagram-node {
+            flex: 1 1 140px;
+            min-height: 104px;
+            background: rgba(10, 7, 2, 0.6);
+            border: 1px solid var(--border-muted);
+            border-radius: 4px;
+            padding: clamp(0.55rem, 1.3vw, 0.9rem);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .diagram-node strong {
+            font-family: var(--font-display);
+            font-size: clamp(1rem, 1.35vw, 1.2rem);
+            color: var(--ivory-mist);
+            line-height: 1.2;
+        }
+
+        .diagram-node span {
+            margin-top: 0.35rem;
+            font-size: 0.95rem;
+            color: #c4b99a;
+            line-height: 1.35;
+        }
+
+        .diagram-link {
+            flex: 0 0 auto;
+            min-width: 24px;
+            align-self: center;
+            color: var(--sunlit-clay);
+            font-family: var(--font-display);
+            font-size: clamp(1.15rem, 2vw, 1.6rem);
+            font-weight: 700;
+        }
+
+        .diagram-states {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: clamp(0.45rem, 1vw, 0.75rem);
+        }
+
+        .state-card {
+            background: rgba(10, 7, 2, 0.5);
+            border: 1px solid var(--border-muted);
+            border-radius: 4px;
+            padding: clamp(0.55rem, 1.3vw, 0.85rem);
+        }
+
+        .state-card strong {
+            display: block;
+            margin-bottom: 0.35rem;
+            font-family: var(--font-mono);
+            font-size: 0.82rem;
+            color: var(--sunlit-clay);
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        .state-card p {
+            font-size: 0.95rem;
+            color: var(--pearl-beige);
+            line-height: 1.4;
+        }
+
+        .diagram-aside .card-icon {
+            margin-bottom: 0;
+        }
+
+        .diagram-aside .bullet-list {
+            gap: 0.4rem;
+        }
+
+        .diagram-aside .bullet-list li {
+            font-size: 1rem;
+            line-height: 1.4;
+        }
+
+        @media (max-width: 960px) {
+            .pattern-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 720px) {
+            .diagram-states {
+                grid-template-columns: 1fr;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -1122,6 +1258,324 @@
         </div>
     </div>
     <span class="slide-num">10 / 22</span>
+</section>
+
+<!-- ===========================================================
+     SLIDE 11 · CIRCUIT BREAKER EM DIAGRAMA
+     =========================================================== -->
+<section class="slide" style="background: var(--bg-primary);">
+    <div class="accent-bar"></div>
+    <div class="slide-content">
+        <p class="section-label reveal">diagrama · circuit breaker</p>
+        <h2 class="reveal" style="margin-bottom: var(--content-gap);">Circuit Breaker</h2>
+
+        <div class="pattern-layout reveal" style="margin-bottom: var(--content-gap);">
+            <div class="diagram-board">
+                <p class="diagram-caption">componentes</p>
+                <div class="diagram-track">
+                    <div class="diagram-node">
+                        <strong>Serviço Chamador</strong>
+                        <span>Recebe a requisição e inicia a chamada externa</span>
+                    </div>
+                    <div class="diagram-link">→</div>
+                    <div class="diagram-node">
+                        <strong>Circuit Breaker</strong>
+                        <span>Mede falhas, latência e mantém o estado</span>
+                    </div>
+                    <div class="diagram-link">→</div>
+                    <div class="diagram-node">
+                        <strong>Cliente Resiliente</strong>
+                        <span>Camada que encapsula a chamada para a dependência</span>
+                    </div>
+                    <div class="diagram-link">→</div>
+                    <div class="diagram-node">
+                        <strong>Dependência Externa</strong>
+                        <span>API, banco ou serviço remoto sujeito a erro ou lentidão</span>
+                    </div>
+                </div>
+
+                <p class="diagram-caption">fluxo de estado</p>
+                <div class="diagram-states">
+                    <div class="state-card">
+                        <strong>closed</strong>
+                        <p>Encaminha chamadas e acumula métricas de sucesso, erro e slow call.</p>
+                    </div>
+                    <div class="state-card">
+                        <strong>open</strong>
+                        <p>Ao atingir o limiar de falha, corta a chamada e responde via fallback.</p>
+                    </div>
+                    <div class="state-card">
+                        <strong>half-open</strong>
+                        <p>Libera poucas chamadas de teste para decidir se fecha ou reabre.</p>
+                    </div>
+                </div>
+
+                <div class="flow-row">
+                    <span class="flow-pill">falhas acima do limiar</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-pill">abre circuito</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-pill">fallback imediato</span>
+                </div>
+            </div>
+
+            <div class="diagram-aside">
+                <div class="card-icon">responsabilidades</div>
+                <ul class="bullet-list">
+                    <li>Evitar cascata quando a dependência já está degradada</li>
+                    <li>Falhar rápido para preservar threads e latência</li>
+                    <li>Centralizar a decisão de reabrir ou retestar o serviço</li>
+                    <li>Expor um ponto claro para fallback e observabilidade</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="highlight-box reveal">
+            <p>O disjuntor não corrige a dependência. Ele <span class="accent">protege o restante do sistema.</span>
+            </p>
+        </div>
+    </div>
+    <span class="slide-num">11 / 26</span>
+</section>
+
+<!-- ===========================================================
+     SLIDE 12 · RETRY EM DIAGRAMA
+     =========================================================== -->
+<section class="slide"
+         style="background: radial-gradient(ellipse at 75% 18%, rgba(101,77,36,0.24) 0%, #150e04 58%), #150e04;">
+    <div class="accent-bar"></div>
+    <div class="slide-content">
+        <p class="section-label reveal">diagrama · retry</p>
+        <h2 class="reveal" style="margin-bottom: var(--content-gap);">Retry</h2>
+
+        <div class="pattern-layout reveal" style="margin-bottom: var(--content-gap);">
+            <div class="diagram-board">
+                <p class="diagram-caption">componentes</p>
+                <div class="diagram-track">
+                    <div class="diagram-node">
+                        <strong>Serviço Chamador</strong>
+                        <span>Dispara uma operação que pode falhar temporariamente</span>
+                    </div>
+                    <div class="diagram-link">→</div>
+                    <div class="diagram-node">
+                        <strong>Retry Policy</strong>
+                        <span>Controla número de tentativas e intervalo entre elas</span>
+                    </div>
+                    <div class="diagram-link">→</div>
+                    <div class="diagram-node">
+                        <strong>Cliente Resiliente</strong>
+                        <span>Repete a chamada somente nos erros configurados</span>
+                    </div>
+                    <div class="diagram-link">→</div>
+                    <div class="diagram-node">
+                        <strong>Dependência Externa</strong>
+                        <span>Falha intermitente que pode se recuperar na próxima chamada</span>
+                    </div>
+                </div>
+
+                <p class="diagram-caption">fluxo de execução</p>
+                <div class="diagram-states">
+                    <div class="state-card">
+                        <strong>tentativa 1</strong>
+                        <p>Se a resposta falhar com erro transitório, a política agenda nova chamada.</p>
+                    </div>
+                    <div class="state-card">
+                        <strong>backoff</strong>
+                        <p>Espera controlada evita tempestade de novas requisições.</p>
+                    </div>
+                    <div class="state-card">
+                        <strong>limite</strong>
+                        <p>Quando esgota as tentativas, encerra o fluxo e deixa o fallback assumir.</p>
+                    </div>
+                </div>
+
+                <div class="flow-row">
+                    <span class="flow-pill">falha transitória</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-pill">aguarda 500ms</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-pill">reenvia</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-pill">sucesso ou fallback</span>
+                </div>
+            </div>
+
+            <div class="diagram-aside">
+                <div class="card-icon">responsabilidades</div>
+                <ul class="bullet-list">
+                    <li>Recuperar falhas temporárias sem intervenção manual</li>
+                    <li>Limitar tentativas para não amplificar a indisponibilidade</li>
+                    <li>Aplicar intervalo ou backoff entre chamadas</li>
+                    <li>Exigir idempotência para não duplicar efeitos colaterais</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="highlight-box reveal">
+            <p>Retry funciona bem para ruído temporário. Em erro persistente, ele deve <span class="accent">parar cedo.</span>
+            </p>
+        </div>
+    </div>
+    <span class="slide-num">12 / 26</span>
+</section>
+
+<!-- ===========================================================
+     SLIDE 13 · TIMEOUT EM DIAGRAMA
+     =========================================================== -->
+<section class="slide" style="background: var(--bg-primary);">
+    <div class="accent-bar"></div>
+    <div class="slide-content">
+        <p class="section-label reveal">diagrama · timeout</p>
+        <h2 class="reveal" style="margin-bottom: var(--content-gap);">Timeout</h2>
+
+        <div class="pattern-layout reveal" style="margin-bottom: var(--content-gap);">
+            <div class="diagram-board">
+                <p class="diagram-caption">componentes</p>
+                <div class="diagram-track">
+                    <div class="diagram-node">
+                        <strong>Requisição</strong>
+                        <span>Entra no serviço com um orçamento máximo de tempo</span>
+                    </div>
+                    <div class="diagram-link">→</div>
+                    <div class="diagram-node">
+                        <strong>TimeLimiter</strong>
+                        <span>Relógio de proteção que observa a duração da chamada</span>
+                    </div>
+                    <div class="diagram-link">→</div>
+                    <div class="diagram-node">
+                        <strong>Execução Assíncrona</strong>
+                        <span>Executa a chamada externa sem bloquear indefinidamente</span>
+                    </div>
+                    <div class="diagram-link">→</div>
+                    <div class="diagram-node">
+                        <strong>Fallback</strong>
+                        <span>Assume quando o prazo estoura e devolve resposta controlada</span>
+                    </div>
+                </div>
+
+                <p class="diagram-caption">fluxo de prazo</p>
+                <div class="diagram-states">
+                    <div class="state-card">
+                        <strong>início</strong>
+                        <p>A chamada começa com budget fixo, por exemplo 2 segundos.</p>
+                    </div>
+                    <div class="state-card">
+                        <strong>até o prazo</strong>
+                        <p>Se a resposta volta dentro do limite, o fluxo segue normalmente.</p>
+                    </div>
+                    <div class="state-card">
+                        <strong>estouro</strong>
+                        <p>Ao exceder o tempo, a espera é cancelada e o fallback devolve resposta controlada.</p>
+                    </div>
+                </div>
+
+                <div class="flow-row">
+                    <span class="flow-pill">inicia relógio</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-pill">espera até 2s</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-pill">cancela</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-pill">retorna degradado</span>
+                </div>
+            </div>
+
+            <div class="diagram-aside">
+                <div class="card-icon">responsabilidades</div>
+                <ul class="bullet-list">
+                    <li>Definir limite máximo aceitável para cada dependência</li>
+                    <li>Impedir espera indefinida e prender menos recursos</li>
+                    <li>Transformar lentidão em resposta previsível</li>
+                    <li>Dar insumo para métricas de latência e SLA</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="highlight-box reveal">
+            <p>Timeout converte lentidão em decisão explícita. Sem ele, a fila inteira pode <span class="accent">parar junto.</span>
+            </p>
+        </div>
+    </div>
+    <span class="slide-num">13 / 26</span>
+</section>
+
+<!-- ===========================================================
+     SLIDE 14 · BULKHEAD EM DIAGRAMA
+     =========================================================== -->
+<section class="slide"
+         style="background: radial-gradient(ellipse at 16% 82%, rgba(101,77,36,0.26) 0%, #150e04 58%), #150e04;">
+    <div class="accent-bar"></div>
+    <div class="slide-content">
+        <p class="section-label reveal">diagrama · bulkhead</p>
+        <h2 class="reveal" style="margin-bottom: var(--content-gap);">Bulkhead</h2>
+
+        <div class="pattern-layout reveal" style="margin-bottom: var(--content-gap);">
+            <div class="diagram-board">
+                <p class="diagram-caption">componentes</p>
+                <div class="diagram-track">
+                    <div class="diagram-node">
+                        <strong>Tráfego de Entrada</strong>
+                        <span>Pico de requisições concorrentes chega ao serviço</span>
+                    </div>
+                    <div class="diagram-link">→</div>
+                    <div class="diagram-node">
+                        <strong>Bulkhead</strong>
+                        <span>Reserva poucas threads ou permissões só para essa integração</span>
+                    </div>
+                    <div class="diagram-link">→</div>
+                    <div class="diagram-node">
+                        <strong>Cliente Resiliente</strong>
+                        <span>Executa somente o volume permitido de chamadas</span>
+                    </div>
+                    <div class="diagram-link">→</div>
+                    <div class="diagram-node">
+                        <strong>Dependência Externa</strong>
+                        <span>Parte lenta ou congestionada que não deve contaminar o resto</span>
+                    </div>
+                </div>
+
+                <p class="diagram-caption">fluxo de isolamento</p>
+                <div class="diagram-states">
+                    <div class="state-card">
+                        <strong>capacidade</strong>
+                        <p>Somente um número fixo de chamadas entra no compartimento protegido.</p>
+                    </div>
+                    <div class="state-card">
+                        <strong>excesso</strong>
+                        <p>O restante espera pouco ou é rejeitado imediatamente, sem drenar o pool global.</p>
+                    </div>
+                    <div class="state-card">
+                        <strong>contenção</strong>
+                        <p>A falha fica isolada nessa integração e outros endpoints continuam saudáveis.</p>
+                    </div>
+                </div>
+
+                <div class="flow-row">
+                    <span class="flow-pill">4 permissões ocupadas</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-pill">5ª chamada bloqueada</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-pill">rejeição rápida</span>
+                </div>
+            </div>
+
+            <div class="diagram-aside">
+                <div class="card-icon">responsabilidades</div>
+                <ul class="bullet-list">
+                    <li>Separar recursos críticos por dependência ou operação</li>
+                    <li>Conter starvation de threads e saturação do pool</li>
+                    <li>Definir concorrência máxima segura</li>
+                    <li>Preservar estabilidade do serviço mesmo sob pico ou lentidão</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="highlight-box reveal">
+            <p>Bulkhead aceita perder uma parte do tráfego para impedir que <span class="accent">todo o navio afunde.</span>
+            </p>
+        </div>
+    </div>
+    <span class="slide-num">14 / 26</span>
 </section>
 
 <!-- ===========================================================
@@ -1580,11 +2034,21 @@
             this.progressBar = document.getElementById('progressBar');
             this.navDotsContainer = document.getElementById('navDots');
 
+            this.updateSlideNumbers();
             this.initSlides();
             this.setupNavDots();
             this.setupKeyboardNav();
             this.setupTouchNav();
             this.setupWheelNav();
+        }
+
+        updateSlideNumbers() {
+            const totalSlides = this.slides.length;
+            this.slides.forEach((slide, index) => {
+                const slideNum = slide.querySelector('.slide-num');
+                if (!slideNum) return;
+                slideNum.textContent = `${String(index + 1).padStart(2, '0')} / ${String(totalSlides).padStart(2, '0')}`;
+            });
         }
 
         /* -------------------------------------------------------
