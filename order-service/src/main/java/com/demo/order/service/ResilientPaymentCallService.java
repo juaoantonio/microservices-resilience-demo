@@ -27,7 +27,7 @@ public class ResilientPaymentCallService {
     private final PaymentFallbackHandler fallbackHandler;
 
     @CircuitBreaker(name = "paymentService", fallbackMethod = "paymentFallback")
-    @TimeLimiter(name = "paymentService", fallbackMethod = "paymentFallback")
+    @TimeLimiter(name = "paymentService")
     @Retry(name = "paymentService")
     public CompletableFuture<OrderResponse> callPayment(Order order, CreateOrderRequest request) {
         return CompletableFuture.supplyAsync(() -> {
